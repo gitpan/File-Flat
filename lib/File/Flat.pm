@@ -12,9 +12,11 @@ use Cwd         ();
 use File::Spec  ();
 use IO::File    ();
 
-use vars qw{$VERSION %modes $errstr};
+use vars qw{$VERSION $errstr %modes $AUTO_PRUNE};
 BEGIN {
-	$VERSION = '0.92';
+	$VERSION = '0.93';
+
+	# The main error string
 	$errstr  = '';
 
 	# Create a map of all file open modes we support,
@@ -26,6 +28,8 @@ BEGIN {
 		'+>' => 1, 'w+' => 1, # ReadWrite
 		'>>' => 1, 'a'  => 1  # Append
 		);
+
+	$AUTO_PRUNE = '';
 }
 
 
@@ -58,7 +62,7 @@ sub canWrite {
 	$Object->_canCreate;
 }
 
-# Can we both read and write to a filesystem object.
+# Can we both read and write to a filesystem object
 sub canReadWrite { defined $_[1] and -r $_[1] and -w $_[1] }
 
 # Do we have permission to execute a filesystem object
@@ -136,17 +140,18 @@ sub open {
 	# Ensure the directory exists for those that need it
 	my $remove_on_fail = '';
 	if ( $modes{$mode} and ! -e $file ) {
-		$remove_on_fail = $class->_ensureDirectory( $file );
+		$remove_on_fail = $class->_makePath( $file );
 		return undef unless defined $remove_on_fail;
 	}
 
 	# Try to get the IO::File
-	IO::File->new( $file, $mode ) or $class->_andRemove( $remove_on_fail );
+	IO::File->new( $file, $mode )
+		or $class->_andRemove( $remove_on_fail );
 }
 
 # Provide creation mode specific methods
-sub getReadHandle      { $_[0]->open( '<', $_[1] )  }
-sub getWriteHandle     { $_[0]->open( '>', $_[1] )  }
+sub getReadHandle      { $_[0]->open( '<',  $_[1] ) }
+sub getWriteHandle     { $_[0]->open( '>',  $_[1] ) }
 sub getAppendHandle    { $_[0]->open( '>>', $_[1] ) }
 sub getReadWriteHandle { $_[0]->open( '+<', $_[1] ) }
 
@@ -166,9 +171,8 @@ sub slurp {
 	my $file = shift or return undef;
 
 	# Check the file
-	unless ( $class->canOpen( $file ) ) {
-		return $class->_error( "Unable to open file '$file'" );
-	}
+	$class->canOpen( $file )
+		or return $class->_error( "Unable to open file '$file'" );
 
 	# Hand off to File::Slurp
 	require File::Slurp;
@@ -177,7 +181,7 @@ sub slurp {
 }
 
 # read reads in an entire file, returning it as an array or a reference to it.
-# depending on the calling context. Returns undef or () on error, depending on 
+# depending on the calling context. Returns undef or () on error, depending on
 # the calling context.
 sub read {
 	my $class = shift;
@@ -341,7 +345,7 @@ sub copy {
 	}
 
 	# Make sure the directory for the target exists
-	my $remove_on_fail = $class->_ensureDirectory( $target );
+	my $remove_on_fail = $class->_makePath( $target );
 	return undef unless defined $remove_on_fail;
 
 	if ( -f $source ) {
@@ -382,7 +386,7 @@ sub move {
 	}
 
 	# Make sure the directory for the target exists
-	my $remove_on_fail = $class->_ensureDirectory( $target );
+	my $remove_on_fail = $class->_makePath( $target );
 	return undef unless defined $remove_on_fail;
 
 	# Do the file move
@@ -409,7 +413,14 @@ sub remove {
 
 	# Use File::Remove to remove it
 	require File::Remove;
-	File::Remove::remove( \1, $file ) ? 1 : undef;
+	File::Remove::remove( \1, $file ) or return undef;
+	($AUTO_PRUNE or $_[0]) ? $class->prune( $file ) : 1; # Optionally prune
+}
+
+# For a given path, remove any empty directories left behind
+sub prune {
+	my $Object = File::Flat::Object->new( $_[1] ) or return undef;
+	$Object->prune;
 }
 
 # Truncate a file. That is, leave the file in place, 
@@ -452,10 +463,10 @@ sub makeDirectory {
 	$Object->makeDirectory;
 }
 
-# Create the directory below ours
-sub _ensureDirectory {
+# Make sure that everything above our path exists
+sub _makePath {
 	my $Object = File::Flat::Object->new( $_[1] ) or return undef;
-	$Object->_ensureDirectory;
+	$Object->_makePath;
 }
 
 
@@ -497,7 +508,7 @@ use UNIVERSAL 'isa';
 use File::Spec ();
 
 sub new {
-	my $class = shift;
+	my $class    = shift;
 	my $filename = shift or return undef;
 
 	bless {
@@ -515,17 +526,17 @@ sub _init {
 
 	# Get the current working directory.
 	# If we don't pass it ourselves to File::Spec->rel2abs, 
-	# it will use a backtick `pwd`. Slooooooooow.
+	# it might use a backtick `pwd`, which is horribly slow.
 	my $base = Cwd::getcwd();
 
 	# Populate the other properties
-	$self->{absolute} = File::Spec->rel2abs( $self->{original}, $base );
-	my ($v, $d, $f) = File::Spec->splitpath( $self->{absolute} );
-	my @dirs = File::Spec->splitdir( $d );
-	$self->{volume} = $v;
+	$self->{absolute}    = File::Spec->rel2abs( $self->{original}, $base );
+	my ($v, $d, $f)      = File::Spec->splitpath( $self->{absolute} );
+	my @dirs             = File::Spec->splitdir( $d );
+	$self->{volume}      = $v;
 	$self->{directories} = \@dirs;
-	$self->{file} = $f;
-	$self->{type} = $self->{file} eq '' ? 'directory' : 'file';
+	$self->{file}        = $f;
+	$self->{type}        = $self->{file} eq '' ? 'directory' : 'file';
 
 	1;
 }
@@ -550,12 +561,10 @@ sub _canCreate {
 	$self->_init unless defined $self->{type};
 
 	# It it already exists, check for writable instead
-	if ( -e $self->{original} ) {
-		return $self->canWrite;
-	}
-
+	return $self->canWrite if -e $self->{original};
+ 
 	# Go up the directories and find the last one that exists
-	my $dir_known = '';
+	my $dir_known   = '';
 	my $dir_unknown = '';
 	my @dirs = @{$self->{directories}};
 	pop @dirs if $self->{file} eq '';
@@ -582,7 +591,7 @@ sub _canCreate {
 	# Can we create filesystem objects under this?
 	return 0 unless -w $dir_known;
 
-	# If @dirs is empty, we don't need to create 
+	# If @dirs is empty, we don't need to create
 	# any directories when we create the file
 	@dirs ? 2 : 1;
 }
@@ -615,8 +624,8 @@ sub open {
 		: File::Flat->open( $self->{original} )
 }
 
-sub getReadHandle      { File::Flat->open( '<', $_[0]->{original} ) }
-sub getWriteHandle     { File::Flat->open( '>', $_[0]->{original} ) }
+sub getReadHandle      { File::Flat->open( '<',  $_[0]->{original} ) }
+sub getWriteHandle     { File::Flat->open( '>',  $_[0]->{original} ) }
 sub getAppendHandle    { File::Flat->open( '>>', $_[0]->{original} ) }
 sub getReadWriteHandle { File::Flat->open( '+<', $_[0]->{original} ) }
 
@@ -627,12 +636,12 @@ sub getReadWriteHandle { File::Flat->open( '+<', $_[0]->{original} ) }
 #####################################################################
 # Quick File Methods
 
-sub slurp     { File::Flat->slurp( $_[0]->{original} ) }
-sub read      { File::Flat->read( $_[0]->{original} ) }
-sub write     { File::Flat->write( $_[0]->{original} ) }
+sub slurp     { File::Flat->slurp(     $_[0]->{original} ) }
+sub read      { File::Flat->read(      $_[0]->{original} ) }
+sub write     { File::Flat->write(     $_[0]->{original} ) }
 sub overwrite { File::Flat->overwrite( $_[0]->{original} ) }
-sub append    { File::Flat->append( $_[0]->{original} ) }
-sub copy      { File::Flat->copy( $_[0]->{original}, $_[1] ) }
+sub append    { File::Flat->append(    $_[0]->{original} ) }
+sub copy      { File::Flat->copy(      $_[0]->{original}, $_[1] ) }
 
 sub move { 
 	my $self = shift;
@@ -650,9 +659,65 @@ sub move {
 	1;
 }
 
-sub remove { File::Flat->remove( $_[0]->{original} ) }
-sub truncate { File::Flat->truncate( $_[0]->{original} ) }
+sub remove {
+	File::Flat->remove( $_[0]->{original} );
+}
 
+# For a given path, remove all empty files that were left behind
+# by previously deleting it.
+sub prune {
+	my $self = shift;
+	$self->_init unless defined $self->{type};
+
+	# We don't actually delete anything that currently exists
+	if ( -e $self->{original} ) {
+		return $self->_error('Bad use of ->prune, to try to delete a file');
+	}
+
+	# Get the list of directories, fully resolved
+	### TO DO - Might be able to do this smaller or more efficiently
+	###         by using List::Util::reduce
+	my @dirs = @{$self->{directories}};
+	my @potential = (
+		File::Spec->catpath( $self->{volume}, shift(@dirs), '' )
+		);
+	while ( @dirs ) {
+		push @potential, File::Spec->catdir( $potential[-1], shift(@dirs), '' );
+	}
+
+	# Go backwards though this list
+	foreach my $dir ( reverse @potential ) {
+		# Not existing is good... it fulfils the intent
+		next unless -e $dir;
+
+		# This should also definately be a file
+		unless ( -d $dir ) {
+			return $self->_error('Found file where a directory was expected while pruning');
+		}
+
+		# Does it contain anything, other that (possibly) curdir and updir entries
+		opendir( PRUNEDIR, $dir )
+			or return $self->_error("opendir failed while pruning: $!");
+		foreach ( readdir PRUNEDIR ) {
+			next if $_ eq File::Spec->curdir;
+			next if $_ eq File::Spec->updir;
+
+			# Found something, we don't need to prune this,
+			# or anything else for that matter.
+			closedir PRUNEDIR;
+			return 1;
+		}
+
+		# Nothing in the directory, we can delete it
+		File::Flat->remove( $dir ) or return undef;
+	}
+
+	1;
+}
+
+sub truncate {
+	File::Flat->truncate( $_[0]->{original} );
+}
 
 
 
@@ -673,7 +738,7 @@ sub makeDirectory {
 	$self->_init unless defined $self->{type};
 
 	# Ensure the directory below ours exists
-	my $remove_on_fail = $self->_ensureDirectory( $mode );
+	my $remove_on_fail = $self->_makePath( $mode );
 	return undef unless defined $remove_on_fail;
 
 	# Create the directory
@@ -689,15 +754,15 @@ sub makeDirectory {
 # Returns the root of the creation dirs if created.
 # Returns '' if nothing required.
 # Returns undef on error.
-sub _ensureDirectory {
+sub _makePath {
 	my $self = shift;
 	my $mode = shift || 0755;
 	return '' if -e $self->{original};
 	$self->_init unless defined $self->{type};
 
 	# Go up the directories and find the last one that exists
-	my $dir_known = '';
-	my $dir_unknown = '';
+	my $dir_known     = '';
+	my $dir_unknown   = '';
 	my $creation_root = '';
 	my @dirs = @{$self->{directories}};
 	pop @dirs if $self->{file} eq '';
@@ -776,6 +841,37 @@ All methods are statically called, for example, to write some stuff to a file.
 File::Flat tries to use more task orientated modules wherever possible. This
 includes the use of File::Copy, File::NCopy, File::Remove and others. These
 are mostly loaded on-demand.
+
+=head2 Pruning and $AUTO_PRUNE
+
+"Pruning" is a technique where empty directories are assumed to be useless,
+and thus empty removed whenever one is created. Thus, when some other task
+has the potential to leave an empty directory, it is checked and deleted if
+it is empty.
+
+By default File::Flat does not prune, and pruning must be done explicitly,
+via either the L<File::Flat/prune> method, or by setting the second
+argument to the L<File::Flat/remove> method to be true.
+
+However by setting the global C<$AUTO_PRUNE> variable to true, File::Flat
+will automatically prune directories at all times. You should generally use
+this locally, such as in the following example.
+
+  #!/usr/bin/perl
+  
+  use strict;
+  use File::Flat;
+  
+  delete_files(@ARGV);
+  exit();
+  
+  # Recursively delete and prune all files provided on the command line
+  sub delete_files {
+  	local $File::Flat::AUTO_PRUNE = 1;
+  	foreach my $file ( @_ ) {
+  		File::Flat->remove( $file ) or die "Failed to delete $file";
+  	}
+  }
 
 =head2 Non-Unix platforms
 
@@ -943,7 +1039,7 @@ This method otherwise acts the same as C<write>.
 The C<copy> method attempts to copy a file or directory from the source to
 the target. New directories to contain the target will be created as needed.
 
-For example C<File::Flat-E<gt>( './this', './a/b/c/d/that' );> will create the 
+For example C<<File::Flat->( './this', './a/b/c/d/that' );>> will create the
 directory structure required as needed. 
 
 In the file copy case, if the target already exists, and is a writable file,
@@ -951,8 +1047,8 @@ we replace the existing file, retaining file mode and owners. If the target
 is a directory, we do NOT copy into that directory, unlike with the 'cp'
 unix command. And error is instead returned.
 
-C<copy> will also do limited recursive copying or directories. If source 
-is a directory, and target does not exists, a recursive copy of source will 
+C<copy> will also do limited recursive copying or directories. If source
+is a directory, and target does not exists, a recursive copy of source will
 be made to target. If target already exists ( file or directory ), C<copy>
 will returns with an error.
 
@@ -962,9 +1058,25 @@ The C<move> method follows the conventions of the 'mv' command, with the
 exception that the directories containing target will of course be created
 on demand.
 
-=head2 remove $filename
+=head2 remove $filename [, $prune ]
 
 The C<remove> method will remove a file, or recursively remove a directory.
+
+If a second (true) argument is provided, then once the file or directory
+has been deleted, the method will the automatically work it's way upwards
+pruning (deleting) empty and thus assumably useless directories.
+
+Returns true if the deletion (and pruning if requested) was a success, or
+C<undef> otherwise.
+
+=head2 prune $filename
+
+For a file that has already been delete, C<prune> will work upwards,
+removing any empty directories it finds.
+
+For anyone familiar with CVS, it is similar to the C<update -P> flag.
+
+Returns true, or C<undef> on error.
 
 =head2 truncate $filename [, $size ]
 
@@ -984,29 +1096,35 @@ An optional file mode ( default 0755 ) can be provided.
 
 Returns true on success, returns undef on error.
 
-=head1 SUPPORT
-
-Bugs should be filed at http://rt.cpan.org/NoAuth/ReportBug.html?Queue=File%3A%3AFlat
-
-For other issues or comment, contact the author
-
 =head1 TO DO
 
-Function interface to be written, ala File::Spec, to provide importable functions.
+Function interface to be written, like
+L<File::Spec::Functions|File::Spec::Functions>, to provide importable
+functions.
+
+There's something bigger here too, I'm not exactly sure what it is,
+but I think there might be the beginings of a unified filesystem
+interface here... FSI.pm
+
+=head1 SUPPORT
+
+Bugs should be filed at via the CPAN bug tracker at:
+
+L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=File%3A%3AFlat>
+
+For other issues or comments, contact the author
 
 =head1 AUTHORS
 
-        Adam Kennedy ( maintainer )
-        cpan@ali.as
-        http://ali.as/
+Adam Kennedy (Maintainer), L<http://ali.as/>, cpan@ali.as
 
 =head1 SEE ALSO
 
-File::Spec
+L<File::Spec|File::Spec>
 
 =head1 COPYRIGHT
 
-Copyright (c) 2002-2003 Adam Kennedy. All rights reserved.
+Copyright (c) 2002 - 2004 Adam Kennedy. All rights reserved.
 This program is free software; you can redistribute
 it and/or modify it under the same terms as Perl itself.
 

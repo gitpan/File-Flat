@@ -1,24 +1,24 @@
-require 5.000;
-use ExtUtils::MakeMaker;
-WriteMakefile(
-	'NAME'         => 'File::Flat',
-	'VERSION_FROM' => 'lib/File/Flat.pm',
-	'PREREQ_PM'    => {
-		'File::Spec'       => 0.85,    # Faster and more featureful
-		'File::Copy'       => 0,       # In Perl core, we don't care about versions
-		'File::NCopy'      => 0.34,    # Required for File::Spec support
-		'File::Slurp'      => 9999.04, # Read/Write files quickly
-		'File::Remove'     => 0.21,    # Required for File::Spec support
-		'File::Temp'       => 0.14,    # Some bugs below 0.12 could matter
-		'IO::File'         => 0,       # Making file handles
+use inc::Module::Install;
 
-		# Testing only
-		'Test::More'       => 0,       # In Perl core, we don't care about versions
-		'Class::Inspector' => 1.06,    # Useless under Win32 until this
-		'File::Find'       => 0,       # Avoid use of system chmod -R in test script
-	},
-	($] >= 5.005) ? (
-		'AUTHOR'     => 'Adam Kennedy (cpan@ali.as)',
-		'ABSTRACT'   => 'Unified interface to the filesystem with directories abstracted away',
-	) : (),
-);
+name          ( 'File-Flat'                   );
+abstract      ( 'Filesystem interface where directories are abstracted away' );
+author        ( 'Adam Kennedy<cpan@ali.as>'   );
+version_from  ( 'lib/File/Flat.pm'            );
+license       ( 'perl'                        );
+
+requires      ( 'perl'           => '5.005'   );
+requires      ( 'File::Spec'     => '0.85'    ); # Faster and featureful
+requires      ( 'File::Copy'     => '0'       );
+requires      ( 'File::NCopy'    => '0.32'    ); # Up to 0.34 ASAP
+requires      ( 'File::Slurp'    => '9999.04' );
+requires      ( 'File::Remove'   => '0.21'    ); # Required for File::Spec support
+requires      ( 'File::Temp'     => '0.14'    ); # Some bugs below 0.12 could matter
+requires      ( 'IO::File'       => '0'       );
+
+build_requires( 'Test::More'     => '0.47'    );
+build_requires( 'Test::ClassAPI' => '1.02'    );
+build_requires( 'File::Find'     => '0'       ); # Avoid use of system chmod -R in test script
+
+auto_install();
+
+&WriteAll;

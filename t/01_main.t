@@ -1,30 +1,23 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -w
 
-# Formal testing for Class::Inspector
-
-# Do all the tests on ourself, since we know we will be loaded.
+# Formal testing for File::Flat
 
 use strict;
 use lib ();
 use UNIVERSAL 'isa';
-use File::Spec::Functions qw{catfile catdir splitdir curdir};
+use File::Spec::Functions ':ALL';
 BEGIN {
 	$| = 1;
 	unless ( $ENV{HARNESS_ACTIVE} ) {
 		require FindBin;
 		chdir ($FindBin::Bin = $FindBin::Bin); # Avoid a warning
-		lib->import( File::Spec->catdir(
-			File::Spec->updir,
-			File::Spec->updir,
-			'modules',
-			) );
+		lib->import( catdir( updir(), updir(), 'modules') );
 	}
 }
 
 use File::Copy   'copy';
 use File::Remove 'remove';
 use File::Find   'find';
-use Class::Inspector ();
 
 # If we are root, some things we WANT to fail won't,
 # and we'll have to skip some tests.
@@ -33,7 +26,7 @@ BEGIN {
 	$root = ($> == 0) ? 1 : 0;
 }
 
-use Test::More tests => ($root ? 206 : 228);
+use Test::More tests => 266;
 
 # Set up any needed globals
 use vars qw{$loaded $ci $bad};
@@ -102,7 +95,27 @@ BEGIN {
 		size_3 => catfile( $curdir, 'size_3' ),
 
 		trunc_1 => catfile( $curdir, 'trunc_1' ),
+
+		prune    => catdir( $curdir, 'prunedir' ),
+		prune_1  => catdir( $curdir, 'prunedir', 'single' ),
+		prune_2  => catdir( $curdir, 'prunedir', 'multiple', 'lots', 'of', 'dirs' ),
+		prune_2a => catdir( $curdir, 'prunedir', 'multiple' ),
+		prune_3  => catdir( $curdir, 'prunedir', 'onlyone', 'thisone' ),
+		prune_4  => catdir( $curdir, 'prunedir', 'onlyone', 'notthis' ),
+		prune_4a => catdir( $curdir, 'prunedir', 'onlyone' ),
+		prune_5  => catdir( $curdir, 'prunedir', 'onlyone', 'notthis', 'orthis' ),
+		
+		remove_prune_1 => catfile( $curdir, 'prunedir', 'remove', 'prune_1' ),
+		remove_prune_2 => catfile( $curdir, 'prunedir', 'remove', 'prune_2' ),
+		remove_prune_3 => catfile( $curdir, 'prunedir', 'remove', 'prune_3' ),
+		remove_prune_4 => catfile( $curdir, 'prunedir', 'remove', 'prune_4' ),
+		remove_prune_5 => catfile( $curdir, 'prunedir', 'remove', 'prune_5' ),
+		remove_prune_6 => catfile( $curdir, 'prunedir', 'remove', 'prune_6' ),
 		);
+
+	# Avoid some 'only used once' warnings
+	$File::Flat::errstr = $File::Flat::errstr;
+	$File::Flat::AUTO_PRUNE = $File::Flat::AUTO_PRUNE;
 }		
 
 # Convenience functions to avoid system calls
@@ -121,34 +134,13 @@ sub touch_test_file($) {
 
 sub chmod_R($$) {
     my($mask, $dir) = @_;
+    chmod $mask, $dir;
     find( sub { chmod $mask, $File::Find::name }, $dir );
 }
 
 # Check their perl version, and that modules are installed
 ok( $] >= 5.005, "Your perl is new enough" );
 use_ok( 'File::Flat' );
-
-
-
-
-
-# First, let's check the APIs of both File::Flat and File::Flat::Object
-# to make sure they present matching APIs
-my $classmethods = Class::Inspector->methods('File::Flat')
-	or die "Failed to get methods for File::Flat";
-my $objectmethods = Class::Inspector->methods('File::Flat::Object')
-	or die "Failed to get methods for File::Flat::Objects";
-my %apihash = ();
-foreach ( grep { $_ ne 'new' } grep { ! /^_/ } (@$classmethods, @$objectmethods) ) {
-	$apihash{$_}++;
-}
-
-my @missing = grep { $apihash{$_} == 1 } sort keys %apihash;
-if ( @missing ) {
-	print map { "Public method '$_' was not present "
-		. "in both File::Flat and File::Flat::Object\n" } @missing;
-}
-ok( scalar @missing == 0, "Static and object APIs match" );
 
 
 
@@ -219,11 +211,13 @@ ok( File::Flat->isaDirectory( $f{baddir} ), "Static ->isaDirectory return true f
 
 # Test the static ->canRead method
 ok( ! File::Flat->canRead( $f{null} ), "Static ->canRead returns false for missing file" );
-unless ( $root ) {
+SKIP: {
+	skip "Skipping tests known to fail for root", 1 if $root;
 	ok( ! File::Flat->canRead( $f{rwx} ), "Static ->canRead returns false for mode 000 file" );
 }
 ok( File::Flat->canRead( $f{Rwx} ), "Static ->canRead returns true for mode 400 file" );
-unless ( $root ) {
+SKIP: {
+	skip "Skipping tests known to fail for root", 2 if $root;
 	ok( ! File::Flat->canRead( $f{rWx} ), "Static ->canRead returns false for mode 200 file" );
 	ok( ! File::Flat->canRead( $f{rwX} ), "Static ->canRead returns false for mode 100 file" );
 }
@@ -232,49 +226,57 @@ ok( File::Flat->canRead( $f{RwX} ), "Static ->canRead returns true for mode 300 
 ok( File::Flat->canRead( $f{RWX} ), "Static ->canRead returns true for mode 700 file" );
 ok( File::Flat->canRead( $curdir ), "Static ->canRead returns true for current directory" );
 ok( File::Flat->canRead( $f{gooddir} ), "Static ->canRead returns true for readable subdirectory" );
-unless ( $root ) {
+SKIP: {
+	skip "Skipping tests known to fail for root", 1 if $root;
 	ok( ! File::Flat->canRead( $f{baddir} ), "Static ->canRead returns false for unreadable subdirectory" );
 }
 
 
 # Test the static ->canWrite method
 ok( File::Flat->canWrite( $f{null} ), "Static ->canWrite returns true for missing, creatable, file" );
-unless ( $root ) {
+SKIP: {
+	skip "Skipping tests known to fail for root", 2 if $root;
 	ok( ! File::Flat->canWrite( $f{rwx} ), "Static ->canWrite returns false for mode 000 file" );
 	ok( ! File::Flat->canWrite( $f{Rwx} ), "Static ->canWrite returns false for mode 400 file" );
 }
 ok( File::Flat->canWrite( $f{rWx} ), "Static ->canWrite returns true for mode 200 file" );
-unless ( $root ) {
+SKIP: {
+	skip "Skipping tests known to fail for root", 1 if $root;
 	ok( ! File::Flat->canWrite( $f{rwX} ), "Static ->canWrite returns false for mode 100 file" );
 }
 ok( File::Flat->canWrite( $f{RWx} ), "Static ->canWrite returns true for mode 500 file" );
-unless ( $root ) {
+SKIP: {
+	skip "Skipping tests known to fail for root", 1 if $root;
 	ok( ! File::Flat->canWrite( $f{RwX} ), "Static ->canWrite returns false for mode 300 file" );
 }
 ok( File::Flat->canWrite( $f{RWX} ), "Static ->canWrite returns true for mode 700 file" );
 ok( File::Flat->canWrite( $curdir ), "Static ->canWrite returns true for current directory" );
 ok( File::Flat->canWrite( $f{gooddir} ), "Static ->canWrite returns true for writable subdirectory" );
-unless ( $root ) {
+SKIP: {
+	skip "Skipping tests known to fail for root", 2 if $root;
 	ok( ! File::Flat->canWrite( $f{baddir} ), "Static ->canWrite returns false for unwritable subdirectory" );
 	ok( ! File::Flat->canWrite( catfile($f{baddir}, 'file') ), "Static ->canWrite returns false for missing, non-creatable file" );
 }
 
 # Test the static ->canReadWrite method
 ok( ! File::Flat->canReadWrite( $f{null} ), "Static ->canReadWrite returns false for missing file" );
-unless ( $root ) {
+SKIP: {
+	skip "Skipping tests known to fail for root", 4 if $root;
 	ok( ! File::Flat->canReadWrite( $f{rwx} ), "Static ->canReadWrite returns false for mode 000 file" );
 	ok( ! File::Flat->canReadWrite( $f{Rwx} ), "Static ->canReadWrite returns false for mode 400 file" );
 	ok( ! File::Flat->canReadWrite( $f{rWx} ), "Static ->canReadWrite returns false for mode 200 file" );
 	ok( ! File::Flat->canReadWrite( $f{rwX} ), "Static ->canReadWrite returns false for mode 100 file" );
 }
 ok( File::Flat->canReadWrite( $f{RWx} ), "Static ->canReadWrite returns true for mode 500 file" );
-unless ( $root ) {
+SKIP: {
+	skip "Skipping tests known to fail for root", 1 if $root;
 	ok( ! File::Flat->canReadWrite( $f{RwX} ), "Static ->canReadWrite returns false for mode 300 file" );
 }
 ok( File::Flat->canReadWrite( $f{RWX} ), "Static ->canReadWrite returns true for mode 700 file" );
 ok( File::Flat->canReadWrite( $curdir ), "Static ->canReadWrite returns true for current directory" );
 ok( File::Flat->canReadWrite( $f{gooddir} ), "Static ->canReadWrite returns true for readwritable subdirectory" );
-unless ( $root ) {
+SKIP: {
+	skip "Skipping tests known to fail for root", 1 if $root;
 	ok( ! File::Flat->canReadWrite( $f{baddir} ), "Static ->canReadWrite returns false for unreadwritable subdirectory" );
 }
 
@@ -289,17 +291,20 @@ ok( File::Flat->canExecute( $f{RwX} ), "Static ->canExecute returns true for mod
 ok( File::Flat->canExecute( $f{RWX} ), "Static ->canExecute returns true for mode 700 file" );
 ok( File::Flat->canExecute( $curdir ), "Static ->canExecute returns true for current directory" );
 ok( File::Flat->canExecute( $f{gooddir} ), "Static ->canExecute returns true for executable subdirectory" );
-unless ( $root ) {
+SKIP: {
+	skip "Skipping tests known to fail for root", 1 if $root;
 	ok( ! File::Flat->canExecute( $f{baddir} ), "Static ->canExecute returns false for unexecutable subdirectory" );
 }
 
 # Test the static ->canOpen method
 ok( ! File::Flat->canOpen( $f{null} ), "Static ->canOpen returns false for missing file" );
-unless ( $root ) {
+SKIP: {
+	skip "Skipping tests known to fail for root", 1 if $root;
 	ok( ! File::Flat->canOpen( $f{rwx} ), "Static ->canOpen returns false for mode 000 file" );
 }
 ok( File::Flat->canOpen( $f{Rwx} ), "Static ->canOpen returns true for mode 400 file" );
-unless ( $root ) {
+SKIP: {
+	skip "Skipping tests known to fail for root", 2 if $root;
 	ok( ! File::Flat->canOpen( $f{rWx} ), "Static ->canOpen returns false for mode 200 file" );
 	ok( ! File::Flat->canOpen( $f{rwX} ), "Static ->canOpen returns false for mode 100 file" );
 }
@@ -376,7 +381,8 @@ ok( ! $rv, "Static ->copy return undef when file does not exist" );
 
 # Directory copying
 $rv = File::Flat->copy( $f{abc}, $f{abd} );
-unless ( $root ) {
+SKIP: {
+	skip "Skipping tests known to fail for root", 1 if $root;
 	ok( $rv, '->copy( dir, dir ) returns true' );
 }
 ok( -d $f{abd}, '->copy( dir, dir ): New dir exists' );
@@ -576,8 +582,6 @@ ok( check_content_file( $f{append_4} ), "->append( file, array_ref ) results in 
 
 
 
-
-
 # Test the ->fileSize method
 ok( File::Flat->write( $f{size_1}, 'abcdefg' )
 	&& File::Flat->write( $f{size_2}, join '', ( 'd' x 100000 ) )
@@ -605,7 +609,8 @@ ok( $rv == 0, "->fileSize( file ) returns the correct size for empty file" );
 
 # Test the ->truncate method. Use the append files
 ok( ! defined File::Flat->truncate(), '->truncate() correctly returns error' );
-unless ( $root ) {
+SKIP: {
+	skip "Skipping tests known to fail for root", 1 if $root;
 	ok( ! defined File::Flat->truncate( $f{rwx} ), '->truncate( file ) returns error when no permissions' );
 }
 ok( ! defined File::Flat->truncate( './b' ), '->truncate( directory ) returns error' );
@@ -632,6 +637,81 @@ ok( File::Flat->fileSize( $f{append_3} ) == 5, '->truncate( file, 5 ) truncates 
 
 
 
+
+#####################################################################
+# Test the prune method
+
+# Create the test directories
+foreach ( 1 .. 5 ) {
+	my $directory = $f{"prune_$_"};
+	ok( File::Flat->makeDirectory( $directory ), "Created test directory '$directory'" );
+}
+
+# Prune beneath the single dir
+$rv = File::Flat->prune( catfile($f{prune_1}, 'file.txt') );
+ok( $rv,              '->prune(single) returned true' );
+ok( ! -e $f{prune_1}, '->prune(single) removed the single' );
+ok(   -d $f{prune},   '->prune(single) didn\'t remove the master prunedir' );
+
+# Prune beneath the multiple dir
+$rv = File::Flat->prune( catfile($f{prune_2}, 'here') );
+ok( $rv,               '->prune(multiple) returned true' );
+ok( ! -e $f{prune_2},  '->prune(multiple) removed the top dir' );
+ok( ! -e $f{prune_2a}, '->prune(multiple) removed all the dirs' );
+ok(   -d $f{prune},    '->prune(multiple) didn\'t remove the master prunedir' );
+
+# Prune stops correctly
+$rv = File::Flat->prune( catfile($f{prune_3}, 'foo') );
+ok( $rv,              '->prune(branched) returned true' );
+ok( ! -e $f{prune_3}, '->prune(branched) removed the correct directory' );
+ok(   -d $f{prune_4}, '->prune(branched) doesn\'t remove side directory' );
+ok(   -d $f{prune},   '->prune(branched) didn\'t remove the master prunedir' );
+
+# Don't prune anything
+$rv = File::Flat->prune( catfile($f{prune_4a}, 'blah') );
+ok( $rv,            '->prune(nothing) returned true' );
+ok( -d $f{prune_4}, '->prune(nothing) doesn\'t remove side directory' );
+ok( -d $f{prune},   '->prune(nothing) didn\'t remove the master prunedir' );
+
+# Error when used as delete
+$rv = File::Flat->prune( $f{prune_5} );
+is( $rv, undef, '->prune(existing) returns an error' );
+ok( File::Flat->errstr, '->prune(existing) sets ->errstr' );
+
+# Test remove, with the prune option.
+
+# Start by copying in some files to work with.
+# We'll use the last of the untouched append files
+foreach ( 1 .. 6 ) {
+	ok( File::Flat->copy( $f{append_4}, catdir( $f{"remove_prune_$_"}, 'file' ) ), 'Copied in delete/prune test file' );
+}
+
+# By default, AUTOPRUNE is off and we don't tell ->remove to prune
+ok( File::Flat->remove( catdir( $f{remove_prune_1}, 'file' ) ), '->remove(default) returns true' );
+ok( -d $f{remove_prune_1}, '->remove(default) leaves dir intact' );
+
+# Try with AUTOPRUNE on
+AUTOPRUNE: {
+	local $File::Flat::AUTO_PRUNE = 1;
+	ok( File::Flat->remove( catdir( $f{remove_prune_2}, 'file' ) ), '->remove(AUTO_PRUNE) returns true' );
+	ok( ! -e $f{remove_prune_2}, '->remove(AUTO_PRUNE) prunes directory' );
+}
+
+# By default, AUTOPRUNE is off
+ok( File::Flat->remove( catdir( $f{remove_prune_3}, 'file' ) ), '->remove(default) returns true' );
+ok( -d $f{remove_prune_3}, '->remove(default) leaves dir intact (AUTO_PRUNE used locally localises correctly)' );
+
+# Tell ->remove to prune
+ok( File::Flat->remove( catdir( $f{remove_prune_4}, 'file' ), 1 ), '->remove(prune) returns true' );
+ok( ! -e $f{remove_prune_4}, '->remove(AUTO_PRUNE) prunes directory' );
+
+# Tell ->remove explicitly not to prune
+ok( File::Flat->remove( catdir( $f{remove_prune_5}, 'file' ), '' ), '->remove(noprune) returns true' );
+ok( -d $f{remove_prune_5}, '->remove(noprune) leaves dir intact' );
+
+# Make sure there's no warning with undef false value
+ok( File::Flat->remove( catdir( $f{remove_prune_6}, 'file' ), undef ), '->remove(noprune) returns true' );
+ok( -d $f{remove_prune_6}, '->remove(noprune) leaves dir intact' );
 
 exit();
 
@@ -679,4 +759,6 @@ END {
 		chmod_R( 0700, $f{$dir} );
 		remove \1, $f{$dir};
 	}
+
+	remove \1, $f{prune};
 }

@@ -27,6 +27,36 @@ DESCRIPTION
     This includes the use of File::Copy, File::NCopy, File::Remove and
     others. These are mostly loaded on-demand.
 
+  Pruning and $AUTO_PRUNE
+    "Pruning" is a technique where empty directories are assumed to be
+    useless, and thus empty removed whenever one is created. Thus, when some
+    other task has the potential to leave an empty directory, it is checked
+    and deleted if it is empty.
+
+    By default File::Flat does not prune, and pruning must be done
+    explicitly, via either the "prune" in File::Flat method, or by setting
+    the second argument to the "remove" in File::Flat method to be true.
+
+    However by setting the global $AUTO_PRUNE variable to true, File::Flat
+    will automatically prune directories at all times. You should generally
+    use this locally, such as in the following example.
+
+      #!/usr/bin/perl
+  
+      use strict;
+      use File::Flat;
+  
+      delete_files(@ARGV);
+      exit();
+  
+      # Recursively delete and prune all files provided on the command line
+      sub delete_files {
+            local $File::Flat::AUTO_PRUNE = 1;
+            foreach my $file ( @_ ) {
+                    File::Flat->remove( $file ) or die "Failed to delete $file";
+            }
+      }
+
   Non-Unix platforms
     File::Flat itself should be completely capable of handling any platform
     through it's exclusive use of File::Spec.
@@ -173,7 +203,7 @@ METHODS
     to the target. New directories to contain the target will be created as
     needed.
 
-    For example "File::Flat->( './this', './a/b/c/d/that' );" will create
+    For example "<File::Flat-"( './this', './a/b/c/d/that' );>> will create
     the directory structure required as needed.
 
     In the file copy case, if the target already exists, and is a writable
@@ -191,9 +221,24 @@ METHODS
     exception that the directories containing target will of course be
     created on demand.
 
-  remove $filename
+  remove $filename [, $prune ]
     The "remove" method will remove a file, or recursively remove a
     directory.
+
+    If a second (true) argument is provided, then once the file or directory
+    has been deleted, the method will the automatically work it's way
+    upwards pruning (deleting) empty and thus assumably useless directories.
+
+    Returns true if the deletion (and pruning if requested) was a success,
+    or "undef" otherwise.
+
+  prune $filename
+    For a file that has already been delete, "prune" will work upwards,
+    removing any empty directories it finds.
+
+    For anyone familiar with CVS, it is similar to the "update -P" flag.
+
+    Returns true, or "undef" on error.
 
   truncate $filename [, $size ]
     The "truncate" method will truncate an existing file to partular size. A
@@ -211,28 +256,31 @@ METHODS
 
     Returns true on success, returns undef on error.
 
-SUPPORT
-    Bugs should be filed at
-    http://rt.cpan.org/NoAuth/ReportBug.html?Queue=File%3A%3AFlat
-
-    For other issues or comment, contact the author
-
 TO DO
-    Function interface to be written, ala File::Spec, to provide importable
-    functions.
+    Function interface to be written, like File::Spec::Functions, to provide
+    importable functions.
+
+    There's something bigger here too, I'm not exactly sure what it is, but
+    I think there might be the beginings of a unified filesystem interface
+    here... FSI.pm
+
+SUPPORT
+    Bugs should be filed at via the CPAN bug tracker at:
+
+    <http://rt.cpan.org/NoAuth/ReportBug.html?Queue=File%3A%3AFlat>
+
+    For other issues or comments, contact the author
 
 AUTHORS
-            Adam Kennedy ( maintainer )
-            cpan@ali.as
-            http://ali.as/
+    Adam Kennedy (Maintainer), <http://ali.as/>, cpan@ali.as
 
 SEE ALSO
     File::Spec
 
 COPYRIGHT
-    Copyright (c) 2002-2003 Adam Kennedy. All rights reserved. This program
-    is free software; you can redistribute it and/or modify it under the
-    same terms as Perl itself.
+    Copyright (c) 2002 - 2004 Adam Kennedy. All rights reserved. This
+    program is free software; you can redistribute it and/or modify it under
+    the same terms as Perl itself.
 
     The full text of the license can be found in the LICENSE file included
     with this module.

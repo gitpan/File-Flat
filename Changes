@@ -1,5 +1,16 @@
 Revision history for Perl extension File::Flat.
 
+0.93 Tue Sep 29 2004
+	- Broke out API tests to use proper Test::ClassAPI testing
+	- Removed use of, bundling of, and direct dependency on Class::Inspector
+	- Added general support for pruning
+	- Added File::Flat::prune static method
+	- Added File::Flat::Object::prune instance method
+	- Added full unit testing for the prune methods
+	- Added full POD for the methods, and $AUTO_PRUNE
+	- Added fixes or workarounds to resolve a number of warnings
+	- Moved Makefile.PL to a Module::Install-based one
+
 0.92 Mon Jul 26 2004
 	- Converting to use File::Slurp where appropriate
 	- Upgraded dependencies to the new File::Spec version of File::Remove
