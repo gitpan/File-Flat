@@ -17,7 +17,7 @@ BEGIN {
 		$root = 0;
 	}
 }
-use Test::More tests => 234;
+use Test::More tests => ($root ? 212 : 234);
 use Class::Inspector ();
 
 # Set up any needed globals
