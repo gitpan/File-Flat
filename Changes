@@ -1,5 +1,10 @@
 Revision history for Perl extension File::Flat.
 
+0.91 Tue Oct 14 19:31 2003
+    - Instead of letting File::Spec->rel2abs contantly do slow forking
+      Cwd::_backtick_pwd calls constantly. Use the faster Cwd::getcwd
+      FIRST, and pass it to rel2abs as the $base value.
+
 0.9  Fri Jul 25 21:00:12 2003
     - Following prompting from Schwern, implemented a bunch of
       test related changes, to try and get File::Flat to build/test/run

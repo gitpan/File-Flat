@@ -12,7 +12,9 @@ WriteMakefile(
 		'File::Temp'       => 0.12, # Some bugs below 0.12 could matter
 		'IO::File'         => 0,
 
-		'File::Find'       => 0, # Help avoid use of system chmod -R in test script
+		# Testing only
+		'Class::Inspector' => 0,
+		'File::Find'       => 0, # Avoid use of system chmod -R in test script
 	},
 	($] >= 5.005) ? (
 		'AUTHOR'     => 'Adam Kennedy (cpan@ali.as)',

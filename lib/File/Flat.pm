@@ -8,13 +8,13 @@ package File::Flat;
 
 use strict;
 use UNIVERSAL 'isa';
-
+use Cwd        ();
 use File::Spec ();
-use IO::File ();
+use IO::File   ();
 
 use vars qw{$VERSION %modes $errstr};
 BEGIN {
-	$VERSION = 0.9;
+	$VERSION = 0.91;
 
 	# Create a map of all file open modes we support,
 	# and which ones will create a new file if needed.
@@ -57,7 +57,7 @@ sub canWrite {
 	
 	# Can we create it
 	my $Object = File::Flat::Object->new( $_[1] ) or return undef;
-	return $Object->_canCreate;
+	$Object->_canCreate;
 }
 
 # Can we both read and write to a filesystem object.
@@ -73,7 +73,7 @@ sub canOpen { defined $_[1] and -f $_[1] and -r $_[1] }
 sub canRemove {
 	# Pass through to the object class
 	my $Object = File::Flat::Object->new( $_[1] ) or return undef;
-	return $Object->canRemove;
+	$Object->canRemove;
 }
 
 # Is the file a text file
@@ -93,7 +93,7 @@ sub fileSize {
 	return $class->_error( 'Cannot get the file size for a directory' ) unless -f $file;
 		
 	# A file's size is contained in element 7
-	return (stat $file)[7];
+	(stat $file)[7];
 }
 
 	
@@ -146,8 +146,8 @@ sub open {
 	}
 
 	# Try to get the IO::File
-	my $handle = IO::File->new( $file, $mode );
-	return $handle || $class->_andRemove( $remove_on_fail );
+	IO::File->new( $file, $mode )
+		or $class->_andRemove( $remove_on_fail );
 }
 
 # Provide creation mode specific methods
@@ -191,7 +191,7 @@ sub slurp {
 	
 	# Return a reference to file contents
 	close SLURP;
-	return \$buffer;
+	\$buffer;
 }
 
 # read reads in an entire file, returning it as an array or a reference to it.
@@ -219,7 +219,7 @@ sub read {
 
 	# Return in the format they want
 	chomp( @content );
-	return wantarray ? @content : \@content;
+	wantarray ? @content : \@content;
 }
 
 # writeFile writes a file to the filesystem, replacing the existing file
@@ -273,9 +273,9 @@ sub write {
 	}
 	
 	# Close the file if needed
-	$file->close() unless $dontclose;
-	
-	return 1;	
+	$file->close unless $dontclose;
+
+	1;	
 }
 
 # overwrite() writes a file to the filesystem, replacing the existing file
@@ -306,13 +306,13 @@ sub overwrite {
 	# to avoid copying large scalars.
 	unless ( $class->write( $handle, ref $_[0] ? $_[0] : \$_[0] ) ) {
 		# Clean up and return an error
-		$handle->close();
+		$handle->close;
 		unlink $tempfile;
 		return $class->_error( "Error while writing file" );
 	}
 
 	# We are finished with the handle	
-	$handle->close();
+	$handle->close;
 	
 	# Now move the finished file to the final location
 	unless ( File::Copy::move( $tempfile, $file ) ) {
@@ -320,8 +320,8 @@ sub overwrite {
 		unlink $tempfile;
 		return $class->_error( "Failed to copy file into final location" );		
 	}		
-	
-	return 1;	
+
+	1;	
 }
 
 # appendFile writes content to the end of an existing file, or creating the
@@ -335,12 +335,12 @@ sub append {
 	my $handle = $class->getAppendHandle( $file ) or return undef;
 	unless ( $class->write( $handle, ref $_[0] ? $_[0] : \$_[0] ) ) {
 		# Clean up and return an error
-		$handle->close();
+		$handle->close;
 		return $class->_error( "Error while writing file" );
 	}
-	$handle->close();
-	
-	return 1;
+	$handle->close;
+
+	1;
 }
 		
 # Copy a file or directory from one place to another.
@@ -350,7 +350,7 @@ sub copy {
 	return undef unless defined($_[0]) && defined($_[1]);
 	my $source = File::Spec->canonpath( shift ) or return undef;
 	my $target = File::Spec->canonpath( shift ) or return undef;
-	
+
 	# Check the source and target
 	return $class->_error( "No such file or directory '$source'" ) unless -e $source;
 	if ( -e $target ) {
@@ -365,7 +365,7 @@ sub copy {
 	unless ( $class->canWrite( $target ) ) {
 		return $class->_error( "Insufficient permissions to create '$target'" );
 	}
-	
+
 	# Make sure the directory for the target exists
 	my $remove_on_fail = $class->_ensureDirectory( $target );
 	return undef unless defined $remove_on_fail;
@@ -384,7 +384,7 @@ sub copy {
 			return $class->_andRemove( $remove_on_fail, 
 				"Failed to create directory '$target'" );
 		}
-		
+
 		# Hand off to File::NCopy
 		require File::NCopy;
 		my $rv = File::NCopy::copy( \1, $tocopy, $target );
@@ -403,16 +403,16 @@ sub move {
 	if ( -d $source and -f $target ) {
 		return $class->_error( "Cannot overwrite non-directory '$source' with directory '$target'" );
 	}
-	
+
 	# Check permissions
 	unless ( $class->canWrite( $target ) ) {
 		return $class->_error( "Insufficient permissions to write to '$target'" );
 	}
-	
+
 	# Make sure the directory for the target exists
 	my $remove_on_fail = $class->_ensureDirectory( $target );
 	return undef unless defined $remove_on_fail;
-	
+
 	# Do the file move
 	require File::Copy;
 	my $rv = File::Copy::move( $source, $target );
@@ -421,15 +421,15 @@ sub move {
 		File::Flat->remove( $remove_on_fail ) if $remove_on_fail;
 		return $class->_error( "Error moveing '$source' to '$target'" );
 	}
-	
-	return 1;
+
+	1;
 }
 
 # Remove a file or directory ( safely )
 sub remove {
 	my $class = shift;
 	my $file = shift or return undef;
-	
+
 	# Does the file exist
 	unless ( -e $file ) {
 		return $class->_error( "File or directory does not exist" );
@@ -437,10 +437,10 @@ sub remove {
 
 	# Like the others, load in File::Remove	
 	require File::Remove;
-	
+
 	# Use File::Remove to remove it
 	my $rv = File::Remove::remove( \1, $file );
-	return $rv ? 1 : undef;
+	$rv ? 1 : undef;
 }
 
 # Truncate a file. That is, leave the file in place, 
@@ -449,7 +449,7 @@ sub truncate {
 	my $class = shift;
 	my $file = shift or return undef;
 	my $bytes = defined $_[0] ? shift : 0; # Beginning unless otherwise specified
-	
+
 	# Check the file
 	if ( -d $file ) {
 		return $class->_error( "Cannot truncate a directory" );
@@ -457,15 +457,15 @@ sub truncate {
 	unless ( $class->canWrite( $file ) ) {
 		return $class->_error( "Insufficient permissions to truncate file" );
 	}
-	
+
 	# Get a handle to the file and truncate it
 	my $handle = $class->open( '>', $file )
 		or return $class->_error( 'Failed to open write file handle' );
 	$handle->truncate( $bytes )
 		or return $class->_error( "Failed to truncate file handle: $!" );
-	$handle->close();
-	
-	return 1;
+	$handle->close;
+
+	1;
 }
 
 
@@ -482,13 +482,13 @@ sub truncate {
 # Returns true on success, undef on error.
 sub makeDirectory {
 	my $Object = File::Flat::Object->new( $_[1] ) or return undef;
-	return $Object->makeDirectory();
+	$Object->makeDirectory;
 }
 
 # Create the directory below ours
 sub _ensureDirectory {
 	my $Object = File::Flat::Object->new( $_[1] ) or return undef;
-	return $Object->_ensureDirectory();
+	$Object->_ensureDirectory;
 }
 
 
@@ -506,9 +506,8 @@ sub _andRemove {
 		require File::Remove;
 		File::Remove::remove( $to_remove );
 	}
-	return @_ 
-		? $self->_error( @_ )
-		: undef;
+
+	@_ ? $self->_error(@_) : undef;
 }
 
 1;
@@ -534,7 +533,7 @@ sub new {
 	my $class = shift;
 	my $filename = shift or return undef;
 	
-	return bless {
+	bless {
 		type        => undef,
 		original    => $filename,
 		absolute    => undef,
@@ -547,8 +546,13 @@ sub new {
 sub _init {
 	my $self = shift;
 
+	# Get the current working directory.
+	# If we don't pass it ourselves to File::Spec->rel2abs, 
+	# it will use a backtick `pwd`. Slooooooooow.
+	my $base = Cwd::getcwd();
+
 	# Populate the other properties
-	$self->{absolute} = File::Spec->rel2abs( $self->{original} );
+	$self->{absolute} = File::Spec->rel2abs( $self->{original}, $base );
 	my ($v, $d, $f) = File::Spec->splitpath( $self->{absolute} );
 	my @dirs = File::Spec->splitdir( $d );
 	$self->{volume} = $v;
@@ -556,7 +560,7 @@ sub _init {
 	$self->{file} = $f;
 	$self->{type} = $self->{file} eq '' ? 'directory' : 'file';
 
-	return 1;
+	1;
 }
 	
 # Define the basics
@@ -576,13 +580,13 @@ sub fileSize     { File::Flat->fileSize( $_[0]->{original} ) }
 # Returns 0 if no.
 sub _canCreate {
 	my $self = shift;
-	$self->_init() unless defined $self->{type};
-	
+	$self->_init unless defined $self->{type};
+
 	# It it already exists, check for writable instead
 	if ( -e $self->{original} ) {
 		return $self->canWrite;
 	}
-	
+
 	# Go up the directories and find the last one that exists
 	my $dir_known = '';
 	my $dir_unknown = '';
@@ -590,7 +594,7 @@ sub _canCreate {
 	pop @dirs if $self->{file} eq '';
 	while ( defined( my $dir = shift @dirs ) ) {
 		$dir_unknown = File::Spec->catdir( $dir_known, $dir );
-		
+
 		# Does the filesystem object exist.
 		# We use '' for the file part, because not specifying it at
 		# all throws a warning.
@@ -604,16 +608,16 @@ sub _canCreate {
 		}
 
 		# A file is where we think a directory should be
-		return 0;
+		0;
 	}
-	
+
 	# $dir_known now contains the last directory that exists.
 	# Can we create filesystem objects under this?
 	return 0 unless -w $dir_known;
-	
+
 	# If @dirs is empty, we don't need to create 
 	# any directories when we create the file
-	return scalar @dirs ? 2 : 1;
+	@dirs ? 2 : 1;
 }	 	
 
 ### FIXME - Implement this.
@@ -639,7 +643,7 @@ sub isBinary { -e $_[0]->{original} and -f $_[0]->{original} and -B $_[0]->{orig
 
 sub open { 
 	my $self = shift;
-	return defined $_[0]
+	defined $_[0]
 		? File::Flat->open( $self->{original}, $_[0] ) 
 		: File::Flat->open( $self->{original} )
 }
@@ -666,16 +670,16 @@ sub move {
 	my $self = shift;
 	my $moveTo = shift;
 	File::Flat->move( $self->{original}, $moveTo ) or return undef;
-	
+
 	# Since the file is moving, once we actually
 	# move the file, update the object information so
 	# it refers to the new location.
 	$self->{original} = $moveTo;
-	
+
 	# Re-initialise if we have already
-	$self->init() if $self->{type};
-	
-	return 1;
+	$self->init if $self->{type};
+
+	1;
 }
 sub remove { File::Flat->remove( $_[0]->{original} ) }
 sub truncate { File::Flat->truncate( $_[0]->{original} ) }
@@ -697,19 +701,19 @@ sub makeDirectory {
 		return 1 if -d $self->{original};
 		return $self->_error( "'$self->{original}' already exists, and is a file" );
 	}
-	$self->_init() unless defined $self->{type};
-	
+	$self->_init unless defined $self->{type};
+
 	# Ensure the directory below ours exists
 	my $remove_on_fail = $self->_ensureDirectory( $mode );
 	return undef unless defined $remove_on_fail;
-	
+
 	# Create the directory
 	unless ( mkdir $self->{original}, $mode ) {
 		return $self->_andRemove( $remove_on_fail, 
 			"Failed to create directory '$self->{original}': $!" );
 	}
-	
-	return 1;
+
+	1;
 }
 
 # Make sure the directory that this file/directory is in exists.
@@ -720,8 +724,8 @@ sub _ensureDirectory {
 	my $self = shift;
 	my $mode = shift || 0755;
 	return '' if -e $self->{original};
-	$self->_init() unless defined $self->{type};
-	
+	$self->_init unless defined $self->{type};
+
 	# Go up the directories and find the last one that exists
 	my $dir_known = '';
 	my $dir_unknown = '';
@@ -730,7 +734,7 @@ sub _ensureDirectory {
 	pop @dirs if $self->{file} eq '';
 	while ( defined( my $dir = shift @dirs ) ) {
 		$dir_unknown = File::Spec->catdir( $dir_known, $dir );
-		
+
 		# Does the filesystem object exist
 		# We use '' for the file part, because not specifying it at
 		# all throws a warning.
@@ -743,15 +747,15 @@ sub _ensureDirectory {
 			unless ( mkdir $dir_unknown, $mode ) {
 				return $self->_error( $! );
 			}
-			
+
 			# Set the base of our creations to return
 			$creation_root = $dir_unknown unless $creation_root;
 		}
 
 		$dir_known = $dir_unknown;
 	}
-	
-	return $creation_root;	
+
+	$creation_root;	
 }
 
 
@@ -764,7 +768,7 @@ sub _ensureDirectory {
 
 sub errstr { $File::Flat::errstr }
 sub _error { $File::Flat::errstr = $_[1]; undef }
-sub _andRemove { shift; return File::Flat->_andRemove( @_ ) }
+sub _andRemove { shift; File::Flat->_andRemove(@_) }
 
 1;
 
