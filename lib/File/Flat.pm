@@ -11,10 +11,15 @@ use UNIVERSAL 'isa';
 use Cwd         ();
 use File::Spec  ();
 use IO::File    ();
+use prefork 'File::Slurp';
+use prefork 'File::Temp';
+use prefork 'File::Copy';
+use prefork 'File::NCopy';
+use prefork 'File::Remove';
 
 use vars qw{$VERSION $errstr %modes $AUTO_PRUNE};
 BEGIN {
-	$VERSION = '0.94';
+	$VERSION = '0.95';
 
 	# The main error string
 	$errstr  = '';
@@ -49,7 +54,7 @@ sub isaFile { defined $_[1] and -f $_[1] }
 sub isaDirectory { defined $_[1] and -d $_[1] }
 
 # Do we have permission to read a filesystem object.
-sub canRead { defined $_[1] and -e $_[1] and -r $_[1] }
+sub canRead { defined $_[1] and -e $_[1] and -r _ }
 
 # Do we have permission to write to a filesystem object.
 # If it doesn't exist, can we create it.
@@ -63,13 +68,13 @@ sub canWrite {
 }
 
 # Can we both read and write to a filesystem object
-sub canReadWrite { defined $_[1] and -r $_[1] and -w $_[1] }
+sub canReadWrite { defined $_[1] and -r $_[1] and -w _ }
 
 # Do we have permission to execute a filesystem object
 sub canExecute { defined $_[1] and -x $_[1] }
 
 # Could we open this as a file
-sub canOpen { defined $_[1] and -f $_[1] and -r $_[1] }
+sub canOpen { defined $_[1] and -f $_[1] and -r _ }
 
 # Could a file or directory be removed, were we to try
 sub canRemove {
@@ -548,11 +553,11 @@ sub _init {
 sub exists       { -e $_[0]->{original} }
 sub isaFile      { -f $_[0]->{original} }
 sub isaDirectory { -d $_[0]->{original} }
-sub canRead      { -e $_[0]->{original} and -r $_[0]->{original} }
-sub canWrite     { -e $_[0]->{original} and -w $_[0]->{original} }
-sub canReadWrite { -e $_[0]->{original} and -r $_[0]->{original} and -w $_[0]->{original} }
-sub canExecute   { -e $_[0]->{original} and -x $_[0]->{original} }
-sub canOpen      { -f $_[0]->{original} and -r $_[0]->{original} }
+sub canRead      { -e $_[0]->{original} and -r _ }
+sub canWrite     { -e $_[0]->{original} and -w _ }
+sub canReadWrite { -e $_[0]->{original} and -r _ and -w _ }
+sub canExecute   { -e $_[0]->{original} and -x _ }
+sub canOpen      { -f $_[0]->{original} and -r _ }
 sub fileSize     { File::Flat->fileSize( $_[0]->{original} ) }
 
 # Can we create this file/directory, if it doesn't exist.
@@ -606,10 +611,10 @@ sub _canCreate {
 sub canRemove { die "The ->canRemove method has not been implemented yet" }
 
 # Is the file a text file.
-sub isText { -e $_[0]->{original} and -f $_[0]->{original} and -T $_[0]->{original} }
+sub isText { -e $_[0]->{original} and -f _ and -T $_[0]->{original} }
 
 # Is a file a binary file.
-sub isBinary { -e $_[0]->{original} and -f $_[0]->{original} and -B $_[0]->{original} }
+sub isBinary { -e $_[0]->{original} and -f _ and -B $_[0]->{original} }
 
 
 

@@ -1,5 +1,9 @@
 Revision history for Perl extension File::Flat.
 
+0.95 Sat Nov  7 2004
+	- More cached stats
+	- Using prefork.pm to preload File:: modules in forking scenarios
+
 0.94 Tue Sep  5 2004
 	- After discovering CVS Monitor was using a private method, and now
 	  breaks, added an alias back in. No user-visible changes.

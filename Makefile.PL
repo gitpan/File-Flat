@@ -7,6 +7,7 @@ version_from  ( 'lib/File/Flat.pm'            );
 license       ( 'perl'                        );
 
 requires      ( 'perl'           => '5.005'   );
+requires      ( 'prefork'        => '0.02'    );
 requires      ( 'File::Spec'     => '0.85'    ); # Faster and featureful
 requires      ( 'File::Copy'     => '0'       );
 requires      ( 'File::NCopy'    => '0.32'    ); # Up to 0.34 ASAP
