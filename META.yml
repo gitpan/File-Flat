@@ -1,5 +1,5 @@
 name: File-Flat
-version: 0.93
+version: 0.94
 abstract: Filesystem interface where directories are abstracted away
 author: Adam Kennedy<cpan@ali.as>
 license: perl

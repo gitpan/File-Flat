@@ -14,7 +14,7 @@ use IO::File    ();
 
 use vars qw{$VERSION $errstr %modes $AUTO_PRUNE};
 BEGIN {
-	$VERSION = '0.93';
+	$VERSION = '0.94';
 
 	# The main error string
 	$errstr  = '';
@@ -424,7 +424,7 @@ sub prune {
 }
 
 # Truncate a file. That is, leave the file in place, 
-# but reduce it's size to a certain size, default 0.
+# but reduce its size to a certain size, default 0.
 sub truncate {
 	my $class = shift;
 	my $file = shift or return undef;
@@ -468,6 +468,9 @@ sub _makePath {
 	my $Object = File::Flat::Object->new( $_[1] ) or return undef;
 	$Object->_makePath;
 }
+
+# Legacy, kept around for CVS Monitor
+*_ensureDirectory = *_makePath;
 
 
 
@@ -792,6 +795,8 @@ sub _makePath {
 	$creation_root;
 }
 
+# Legacy, kept around for CVS Monitor
+*_ensureDirectory = *_makePath;
 
 
 
@@ -876,7 +881,7 @@ this locally, such as in the following example.
 =head2 Non-Unix platforms
 
 File::Flat itself should be completely capable of handling any platform
-through it's exclusive use of File::Spec.
+through its exclusive use of File::Spec.
 
 However, some of the modules it relies upon, particularly File::Remove, and
 possible File::NCopy are not File::Spec happy yet. Results may wary on non
@@ -936,7 +941,7 @@ Does the file C<filename> exist, and is it a binary file.
 
 =head2 fileSize $filename
 
-If the file exists, returns it's size in bytes.
+If the file exists, returns its size in bytes.
 Returns undef if the file does not exist.
 
 =head2 open [ $mode, ] $filename
@@ -1063,7 +1068,7 @@ on demand.
 The C<remove> method will remove a file, or recursively remove a directory.
 
 If a second (true) argument is provided, then once the file or directory
-has been deleted, the method will the automatically work it's way upwards
+has been deleted, the method will the automatically work its way upwards
 pruning (deleting) empty and thus assumably useless directories.
 
 Returns true if the deletion (and pruning if requested) was a success, or

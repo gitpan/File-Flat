@@ -59,7 +59,7 @@ DESCRIPTION
 
   Non-Unix platforms
     File::Flat itself should be completely capable of handling any platform
-    through it's exclusive use of File::Spec.
+    through its exclusive use of File::Spec.
 
     However, some of the modules it relies upon, particularly File::Remove,
     and possible File::NCopy are not File::Spec happy yet. Results may wary
@@ -106,8 +106,8 @@ METHODS
     Does the file "filename" exist, and is it a binary file.
 
   fileSize $filename
-    If the file exists, returns it's size in bytes. Returns undef if the
-    file does not exist.
+    If the file exists, returns its size in bytes. Returns undef if the file
+    does not exist.
 
   open [ $mode, ] $filename
     Rough analogue of the open function, but creates directories on demand
@@ -226,8 +226,8 @@ METHODS
     directory.
 
     If a second (true) argument is provided, then once the file or directory
-    has been deleted, the method will the automatically work it's way
-    upwards pruning (deleting) empty and thus assumably useless directories.
+    has been deleted, the method will the automatically work its way upwards
+    pruning (deleting) empty and thus assumably useless directories.
 
     Returns true if the deletion (and pruning if requested) was a success,
     or "undef" otherwise.

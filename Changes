@@ -1,5 +1,9 @@
 Revision history for Perl extension File::Flat.
 
+0.94 Tue Sep  5 2004
+	- After discovering CVS Monitor was using a private method, and now
+	  breaks, added an alias back in. No user-visible changes.
+
 0.93 Tue Sep 29 2004
 	- Broke out API tests to use proper Test::ClassAPI testing
 	- Removed use of, bundling of, and direct dependency on Class::Inspector
