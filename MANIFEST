@@ -1,11 +1,12 @@
-.#01_main.t.1.28
 Changes
-LICENSE
-MANIFEST
-Makefile.PL
-README
 ff_binary
 ff_content
 ff_text
 lib/File/Flat.pm
+LICENSE
+Makefile.PL
+MANIFEST			This list of files
+README
 t/01_main.t
+t/lib/Class/Inspector.pm
+META.yml                                Module meta-data (added by MakeMaker)

@@ -1,8 +1,13 @@
 Revision history for Perl extension File::Flat.
 
+0.9  Fri Jul 25 21:00:12 2003
+    - Following prompting from Schwern, implemented a bunch of
+      test related changes, to try and get File::Flat to build/test/run
+      on non-Unix platforms.
+
 0.8  Wed May 07 00:56:21 2003
     - Bug in the test script, fixed
-    
+
 0.7  Tue May 06 23:58:54 2003
     - IO::File cannot be autoloaded. Always load it
 

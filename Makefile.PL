@@ -4,18 +4,18 @@ WriteMakefile(
 	'NAME'         => 'File::Flat',
 	'VERSION_FROM' => 'lib/File/Flat.pm',
 	'PREREQ_PM'    => {
-		'Class::Autouse'   => 0.7,
+		'Class::Autouse'   => 1.0,
 		'File::Spec'       => 0.82,
 		'File::Copy'       => 0,
 		'File::NCopy'      => 0.32,
-		'File::Remove'     => 0.20, # Required for recursive
-		'File::Temp'       => 0.12, # Some bugs here could matter
+		'File::Remove'     => 0.20, # Required for recursive remove
+		'File::Temp'       => 0.12, # Some bugs below 0.12 could matter
 		'IO::File'         => 0,
 
-		'Class::Inspector' => 0, # For the test script
+		'File::Find'       => 0, # Help avoid use of system chmod -R in test script
 	},
 	($] >= 5.005) ? (
 		'AUTHOR'     => 'Adam Kennedy (cpan@ali.as)',
-		'ABSTRACT'   => 'Provides an interface to a directory-less flat filesystem',
+		'ABSTRACT'   => 'Unified interface to the filesystem with directories abstracted away',
 	) : (),
 );

@@ -1,23 +1,20 @@
 package File::Flat;
 
-# The File::Flat is a static class that provides an interface to
-# a flat filesystem. In effect, it makes the directory seperator
-# a part of the file name. On disk, directories will be created on
-# demand as required.
-#
-# For now, this is only expected to work on Unix style filesystems
+# The File::Flat is a static class that provides a unified interface
+# to the filesystem in a way such that directories are abstracted away.
+
+# This should work on non-Unix platforms, but there may be some
+# minor remaining bugs.
 
 use strict;
 use UNIVERSAL 'isa';
 
-# Load required modules.
 use File::Spec ();
 use IO::File ();
 
 use vars qw{$VERSION %modes $errstr};
 BEGIN {
-	# Set the version
-	$VERSION = 0.8;
+	$VERSION = 0.9;
 
 	# Create a map of all file open modes we support,
 	# and which ones will create a new file if needed.
@@ -29,7 +26,7 @@ BEGIN {
 		'>>' => 1, 'a'  => 1  # Append
 		);
 
-	# Error messages
+	# Error message
 	$errstr = '';
 }
 
@@ -60,7 +57,7 @@ sub canWrite {
 	
 	# Can we create it
 	my $Object = File::Flat::Object->new( $_[1] ) or return undef;
-	return $Object->_canCreate();
+	return $Object->_canCreate;
 }
 
 # Can we both read and write to a filesystem object.
@@ -92,10 +89,10 @@ sub fileSize {
 	my $file = shift or return undef;
 	
 	# Check the file
-	return $class->_andError( 'File does not exist' ) unless -e $file;
-	return $class->_andError( 'Cannot get the file size for a directory' ) unless -f $file;
+	return $class->_error( 'File does not exist' ) unless -e $file;
+	return $class->_error( 'Cannot get the file size for a directory' ) unless -f $file;
 		
-	# A file's size is contained in the 7th element
+	# A file's size is contained in element 7
 	return (stat $file)[7];
 }
 
@@ -133,12 +130,12 @@ sub open {
 		$file = shift;
 
 	} else {
-		return $class->_andError( "Invalid argument count to ->open" );
+		return $class->_error( "Invalid argument count to ->open" );
 	}
 
 	# Check the mode
 	unless ( exists $modes{$mode} ) {
-		return $class->_andError( "Unknown or unsupported mode '$mode'" );
+		return $class->_error( "Unknown or unsupported mode '$mode'" );
 	}
 
 	# Ensure the directory exists for those that need it
@@ -176,11 +173,11 @@ sub slurp {
 	
 	# Check the file
 	unless ( $class->canOpen( $file ) ) {
-		return $class->_andError( "Unable to open file '$file'" );
+		return $class->_error( "Unable to open file '$file'" );
 	}
 
 	# Open the file
-	CORE::open( SLURP, $file ) or return $class->_andError( "Error opening file '$file'", $! );
+	CORE::open( SLURP, $file ) or return $class->_error( "Error opening file '$file'", $! );
 	
 	# Create the file buffer, and read in the file
 	my $buffer;
@@ -206,13 +203,13 @@ sub read {
 	
 	# Check the file
 	unless ( $class->canOpen( $file ) ) {
-		$class->_andError( "Unable to open file '$file'" );
+		$class->_error( "Unable to open file '$file'" );
 		return wantarray ? () : undef;
 	}
 
 	# Read the file
 	unless ( CORE::open( READ, $file ) ) {
-		$class->_andError( "Error opening file '$file'", $! );
+		$class->_error( "Error opening file '$file'", $! );
 		return wantarray ? () : undef;
 	}
 
@@ -232,7 +229,7 @@ sub write {
 	my $class = shift;
 	my $file = shift or return undef;
 	unless ( defined $_[0] ) {
-		return $class->_andError( "Did not pass anything to write to file" );
+		return $class->_error( "Did not pass anything to write to file" );
 	}
 	
 	# Get a ref to the contents.
@@ -244,7 +241,7 @@ sub write {
 		if ( isa( $_[0], 'SCALAR' ) or isa( $_[0], 'ARRAY' ) ) {
 			$contents = $_[0];
 		} else {
-			return $class->_andError( "Unknown or invalid argument to ->write" );
+			return $class->_error( "Unknown or invalid argument to ->write" );
 		}
 	} else {
 		$contents = \$_[0];
@@ -291,7 +288,7 @@ sub overwrite {
 	
 	# Make sure we will be able to write over the file
 	unless ( $class->canWrite($file) ) {
-		return $class->_andError( "Will not be able to create the file '$file'" );
+		return $class->_error( "Will not be able to create the file '$file'" );
 	}
 
 	# Load in the two libraries we need.
@@ -311,7 +308,7 @@ sub overwrite {
 		# Clean up and return an error
 		$handle->close();
 		unlink $tempfile;
-		return $class->_andError( "Error while writing file" );
+		return $class->_error( "Error while writing file" );
 	}
 
 	# We are finished with the handle	
@@ -321,7 +318,7 @@ sub overwrite {
 	unless ( File::Copy::move( $tempfile, $file ) ) {
 		# Clean up the tempfile and return an error
 		unlink $tempfile;
-		return $class->_andError( "Failed to copy file into final location" );		
+		return $class->_error( "Failed to copy file into final location" );		
 	}		
 	
 	return 1;	
@@ -339,7 +336,7 @@ sub append {
 	unless ( $class->write( $handle, ref $_[0] ? $_[0] : \$_[0] ) ) {
 		# Clean up and return an error
 		$handle->close();
-		return $class->_andError( "Error while writing file" );
+		return $class->_error( "Error while writing file" );
 	}
 	$handle->close();
 	
@@ -355,10 +352,10 @@ sub copy {
 	my $target = File::Spec->canonpath( shift ) or return undef;
 	
 	# Check the source and target
-	return $class->_andError( "No such file or directory '$source'" ) unless -e $source;
+	return $class->_error( "No such file or directory '$source'" ) unless -e $source;
 	if ( -e $target ) {
 		unless ( -f $source and -f $target ) {
-			return $class->_andError( "Won't overwrite " 
+			return $class->_error( "Won't overwrite " 
 				. (-f $target ? 'file' : 'directory')
 				. " '$target' with "
 				. (-f $source ? 'file' : 'directory')
@@ -366,7 +363,7 @@ sub copy {
 		}
 	}		
 	unless ( $class->canWrite( $target ) ) {
-		return $class->_andError( "Insufficient permissions to create '$target'" );
+		return $class->_error( "Insufficient permissions to create '$target'" );
 	}
 	
 	# Make sure the directory for the target exists
@@ -402,14 +399,14 @@ sub move {
 	my $target = shift or return undef;
 
 	# Check the source and target
-	return $class->_andError( "Copy source '$source' does not exist" ) unless -e $source;
+	return $class->_error( "Copy source '$source' does not exist" ) unless -e $source;
 	if ( -d $source and -f $target ) {
-		return $class->_andError( "Cannot overwrite non-directory '$source' with directory '$target'" );
+		return $class->_error( "Cannot overwrite non-directory '$source' with directory '$target'" );
 	}
 	
 	# Check permissions
 	unless ( $class->canWrite( $target ) ) {
-		return $class->_andError( "Insufficient permissions to write to '$target'" );
+		return $class->_error( "Insufficient permissions to write to '$target'" );
 	}
 	
 	# Make sure the directory for the target exists
@@ -422,7 +419,7 @@ sub move {
 	unless ( $rv ) {
 		# Clean up after ourselves
 		File::Flat->remove( $remove_on_fail ) if $remove_on_fail;
-		return $class->_andError( "Error moveing '$source' to '$target'" );
+		return $class->_error( "Error moveing '$source' to '$target'" );
 	}
 	
 	return 1;
@@ -435,7 +432,7 @@ sub remove {
 	
 	# Does the file exist
 	unless ( -e $file ) {
-		return $class->_andError( "File or directory does not exist" );
+		return $class->_error( "File or directory does not exist" );
 	}
 
 	# Like the others, load in File::Remove	
@@ -455,17 +452,17 @@ sub truncate {
 	
 	# Check the file
 	if ( -d $file ) {
-		return $class->_andError( "Cannot truncate a directory" );
+		return $class->_error( "Cannot truncate a directory" );
 	}
 	unless ( $class->canWrite( $file ) ) {
-		return $class->_andError( "Insufficient permissions to truncate file" );
+		return $class->_error( "Insufficient permissions to truncate file" );
 	}
 	
 	# Get a handle to the file and truncate it
 	my $handle = $class->open( '>', $file )
-		or return $class->_andError( 'Failed to open write file handle' );
+		or return $class->_error( 'Failed to open write file handle' );
 	$handle->truncate( $bytes )
-		or return $class->_andError( "Failed to truncate file handle: $!" );
+		or return $class->_error( "Failed to truncate file handle: $!" );
 	$handle->close();
 	
 	return 1;
@@ -501,7 +498,7 @@ sub _ensureDirectory {
 # Error handling
 
 sub errstr   { $errstr }
-sub _andError { $errstr = $_[1]; undef }
+sub _error { $errstr = $_[1]; undef }
 sub _andRemove {
 	my $self = shift;
 	my $to_remove = shift;
@@ -510,7 +507,7 @@ sub _andRemove {
 		File::Remove::remove( $to_remove );
 	}
 	return @_ 
-		? $self->_andError( @_ )
+		? $self->_error( @_ )
 		: undef;
 }
 
@@ -538,12 +535,12 @@ sub new {
 	my $filename = shift or return undef;
 	
 	return bless {
-		type => undef,
-		original => $filename,
-		absolute => undef,
-		volume => undef,
+		type        => undef,
+		original    => $filename,
+		absolute    => undef,
+		volume      => undef,
 		directories => undef,
-		file => undef,
+		file        => undef,
 		}, $class;
 }
 
@@ -698,7 +695,7 @@ sub makeDirectory {
 	my $mode = shift || 0755;
 	if ( -e $self->{original} ) {
 		return 1 if -d $self->{original};
-		return $self->_andError( "'$self->{original}' already exists, and is a file" );
+		return $self->_error( "'$self->{original}' already exists, and is a file" );
 	}
 	$self->_init() unless defined $self->{type};
 	
@@ -744,7 +741,7 @@ sub _ensureDirectory {
 		} else {
 			# Try to create the directory
 			unless ( mkdir $dir_unknown, $mode ) {
-				return $self->_andError( $! );
+				return $self->_error( $! );
 			}
 			
 			# Set the base of our creations to return
@@ -765,8 +762,8 @@ sub _ensureDirectory {
 #####################################################################
 # Error handling
 
-sub errstr   { $File::Flat::errstr }
-sub _andError { $File::Flat::errstr = $_[1]; undef }
+sub errstr { $File::Flat::errstr }
+sub _error { $File::Flat::errstr = $_[1]; undef }
 sub _andRemove { shift; return File::Flat->_andRemove( @_ ) }
 
 1;
