@@ -1,5 +1,8 @@
 Revision history for Perl extension File::Flat.
 
+0.3  Wed Nov 20 14:21:54 2002
+    - Added Class::Autouse to Makefile
+    
 0.2  Mon Nov 18 15:37:23 2002
 	- Completed main method set
 	- Added full testing suite ( 73% coverage )

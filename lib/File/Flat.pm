@@ -17,7 +17,7 @@ use Class::Autouse qw{IO::File};
 use vars qw{$VERSION %modes $errstr};
 BEGIN {
 	# Set the version
-	$VERSION = 0.2;
+	$VERSION = 0.3;
 
 	# Create a map of all file open modes we support,
 	# and which ones will create a new file if needed.

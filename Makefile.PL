@@ -4,6 +4,7 @@ WriteMakefile(
 	'NAME'         => 'File::Flat',
 	'VERSION_FROM' => 'lib/File/Flat.pm',
 	'PREREQ_PM'    => {
+		'Class::Autouse'   => 0.7,
 		'File::Spec'       => 0.82,
 		'File::Copy'       => 0,
 		'File::NCopy'      => 0.32,
