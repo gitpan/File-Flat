@@ -1,0 +1,13 @@
+Changes
+LICENSE
+MANIFEST
+Makefile.PL
+README
+ff_binary
+ff_content
+ff_text
+lib/File/Flat.pm
+t/01_main.t
+t/ff_binary
+t/ff_content
+t/ff_text
