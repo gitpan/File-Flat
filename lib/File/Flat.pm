@@ -8,13 +8,14 @@ package File::Flat;
 
 use strict;
 use UNIVERSAL 'isa';
-use Cwd        ();
-use File::Spec ();
-use IO::File   ();
+use Cwd         ();
+use File::Spec  ();
+use IO::File    ();
 
 use vars qw{$VERSION %modes $errstr};
 BEGIN {
-	$VERSION = 0.91;
+	$VERSION = '0.92';
+	$errstr  = '';
 
 	# Create a map of all file open modes we support,
 	# and which ones will create a new file if needed.
@@ -25,9 +26,6 @@ BEGIN {
 		'+>' => 1, 'w+' => 1, # ReadWrite
 		'>>' => 1, 'a'  => 1  # Append
 		);
-
-	# Error message
-	$errstr = '';
 }
 
 
@@ -54,7 +52,7 @@ sub canRead { defined $_[1] and -e $_[1] and -r $_[1] }
 sub canWrite {
 	# If it already exists, check normally
 	return -w $_[1] if -e $_[1];
-	
+
 	# Can we create it
 	my $Object = File::Flat::Object->new( $_[1] ) or return undef;
 	$Object->_canCreate;
@@ -86,17 +84,17 @@ sub isBinary { defined $_[1] and -f $_[1] and -B $_[1] }
 # I've included only the most usefull one I can think of.
 sub fileSize {
 	my $class = shift;
-	my $file = shift or return undef;
-	
+	my $file  = shift or return undef;
+
 	# Check the file
 	return $class->_error( 'File does not exist' ) unless -e $file;
-	return $class->_error( 'Cannot get the file size for a directory' ) unless -f $file;
-		
+	return $class->_error( 'Cannot get the file size for a directory' ) unless -f _;
+
 	# A file's size is contained in element 7
 	(stat $file)[7];
 }
 
-	
+
 
 
 
@@ -113,19 +111,16 @@ sub fileSize {
 # Returns an IO::File for the filesystem object.
 sub open {
 	my $class = shift;
-	
+
 	# One or two argument form
 	my ($file, $mode) = ();
-	if ( scalar @_ == 1 ) {
+	if ( @_ == 1 ) {
 		$file = shift;
-		if ( $file =~ s/^([<>+]{1,2})\s*// ) {
-			$mode = $1;
-		} else {
-			# Read by default
-			$mode = '<'; 
-		}
 
-	} elsif ( scalar @_ == 2 ) {
+		# Read by default
+		$mode = $file =~ s/^([<>+]{1,2})\s*// ? $1 : '<';
+
+	} elsif ( @_ == 2 ) {
 		$mode = shift;
 		$file = shift;
 
@@ -142,18 +137,17 @@ sub open {
 	my $remove_on_fail = '';
 	if ( $modes{$mode} and ! -e $file ) {
 		$remove_on_fail = $class->_ensureDirectory( $file );
-		return undef unless defined $remove_on_fail;		
+		return undef unless defined $remove_on_fail;
 	}
 
 	# Try to get the IO::File
-	IO::File->new( $file, $mode )
-		or $class->_andRemove( $remove_on_fail );
+	IO::File->new( $file, $mode ) or $class->_andRemove( $remove_on_fail );
 }
 
 # Provide creation mode specific methods
-sub getReadHandle { $_[0]->open( '<', $_[1] ) }
-sub getWriteHandle { $_[0]->open( '>', $_[1] ) }
-sub getAppendHandle { $_[0]->open( '>>', $_[1] ) }
+sub getReadHandle      { $_[0]->open( '<', $_[1] )  }
+sub getWriteHandle     { $_[0]->open( '>', $_[1] )  }
+sub getAppendHandle    { $_[0]->open( '>>', $_[1] ) }
 sub getReadWriteHandle { $_[0]->open( '+<', $_[1] ) }
 
 
@@ -170,28 +164,16 @@ sub getReadWriteHandle { $_[0]->open( '+<', $_[1] ) }
 sub slurp {
 	my $class = shift;
 	my $file = shift or return undef;
-	
+
 	# Check the file
 	unless ( $class->canOpen( $file ) ) {
 		return $class->_error( "Unable to open file '$file'" );
 	}
 
-	# Open the file
-	CORE::open( SLURP, $file ) or return $class->_error( "Error opening file '$file'", $! );
-	
-	# Create the file buffer, and read in the file
-	my $buffer;
-	{
-		# Don't try to think about "lines" of the file
-		local $/ = undef;
-		
-		# Read in the entire file ( since "lines" don't exist )
-		$buffer = <SLURP>;
-	}
-	
-	# Return a reference to file contents
-	close SLURP;
-	\$buffer;
+	# Hand off to File::Slurp
+	require File::Slurp;
+	File::Slurp::read_file( $file, scalar_ref => 1 )
+		or $class->_error( "Error opening file '$file'", $! );
 }
 
 # read reads in an entire file, returning it as an array or a reference to it.
@@ -199,26 +181,18 @@ sub slurp {
 # the calling context.
 sub read {
 	my $class = shift;
-	my $file = shift or return wantarray ? () : undef;;
-	
+	my $file = shift or return;
+
 	# Check the file
 	unless ( $class->canOpen( $file ) ) {
 		$class->_error( "Unable to open file '$file'" );
-		return wantarray ? () : undef;
+		return;
 	}
 
-	# Read the file
-	unless ( CORE::open( READ, $file ) ) {
-		$class->_error( "Error opening file '$file'", $! );
-		return wantarray ? () : undef;
-	}
-
-	my @content = <READ>;
-
-	close READ or return wantarray ? () : undef;
-
-	# Return in the format they want
-	chomp( @content );
+	# Hand off to File::Slurp
+	require File::Slurp;
+	my @content = File::Slurp::read_file( $file );
+	chomp @content;
 	wantarray ? @content : \@content;
 }
 
@@ -231,35 +205,35 @@ sub write {
 	unless ( defined $_[0] ) {
 		return $class->_error( "Did not pass anything to write to file" );
 	}
-	
+
 	# Get a ref to the contents.
 	# This looks messy, but it avoids copying potentially large amounts
 	# of data in memory, bloating the RAM usage.
 	# This also makes sure the stuff we are going to write is ok.
 	my $contents;
 	if ( ref $_[0] ) {
-		if ( isa( $_[0], 'SCALAR' ) or isa( $_[0], 'ARRAY' ) ) {
-			$contents = $_[0];
-		} else {
+		unless ( isa( $_[0], 'SCALAR' ) or isa( $_[0], 'ARRAY' ) ) {
 			return $class->_error( "Unknown or invalid argument to ->write" );
 		}
+
+		$contents = $_[0];
 	} else {
 		$contents = \$_[0];
 	}
-	
+
 	# Get an opened write file handle if we weren't passed a handle already.
 	# When this falls out of context, it will close itself.
 	# Since there are many things that act like file handles, don't check
 	# specifically for IO::Handle or anything, just for a reference.
 	my $dontclose = 0;
-	if ( ref $file ) { 
+	if ( ref $file ) {
 		# Don't close is someone passes us a handle.
 		# They might want to write other things.
 		$dontclose = 1;
-	} else {	
+	} else {
 		$file = $class->getWriteHandle( $file ) or return undef;
 	}
-	
+
 	# Write the contents to the handle
 	if ( isa( $contents, 'SCALAR' ) ) {
 		$file->print( $$contents ) or return undef;
@@ -271,11 +245,11 @@ sub write {
 			$file->print( $_ . "\n" ) or return undef;
 		}
 	}
-	
+
 	# Close the file if needed
 	$file->close unless $dontclose;
 
-	1;	
+	1;
 }
 
 # overwrite() writes a file to the filesystem, replacing the existing file
@@ -285,7 +259,7 @@ sub overwrite {
 	my $class = shift;
 	my $file = shift or return undef;
 	return undef unless defined $_[0];
-	
+
 	# Make sure we will be able to write over the file
 	unless ( $class->canWrite($file) ) {
 		return $class->_error( "Will not be able to create the file '$file'" );
@@ -300,7 +274,7 @@ sub overwrite {
 
 	# Get a temp file
 	my ($handle, $tempfile) = File::Temp::tempfile( SUFFIX => '.tmp', UNLINK => 0 );
-	
+
 	# Write the content to it.
 	# Pass the argument by reference if it isn't already,
 	# to avoid copying large scalars.
@@ -311,17 +285,17 @@ sub overwrite {
 		return $class->_error( "Error while writing file" );
 	}
 
-	# We are finished with the handle	
+	# We are finished with the handle
 	$handle->close;
-	
+
 	# Now move the finished file to the final location
 	unless ( File::Copy::move( $tempfile, $file ) ) {
 		# Clean up the tempfile and return an error
 		unlink $tempfile;
-		return $class->_error( "Failed to copy file into final location" );		
-	}		
+		return $class->_error( "Failed to copy file into final location" );
+	}
 
-	1;	
+	1;
 }
 
 # appendFile writes content to the end of an existing file, or creating the
@@ -342,7 +316,7 @@ sub append {
 
 	1;
 }
-		
+
 # Copy a file or directory from one place to another.
 # We apply our own copy semantics.
 sub copy {
@@ -361,7 +335,7 @@ sub copy {
 				. (-f $source ? 'file' : 'directory')
 				. " '$source'" );
 		}
-	}		
+	}
 	unless ( $class->canWrite( $target ) ) {
 		return $class->_error( "Insufficient permissions to create '$target'" );
 	}
@@ -373,23 +347,21 @@ sub copy {
 	if ( -f $source ) {
 		# Copy a file to the new location
 		require File::Copy;
-		return File::Copy::copy( $source, $target )
-			? 1 : $class->_andRemove( $remove_on_fail );
-
-	} else {
-		my $tocopy = File::Spec->catfile( $source, '*' ) or return undef;
-		
-		# Create the target directory
-		unless ( mkdir $target, 0755 ) {
-			return $class->_andRemove( $remove_on_fail, 
-				"Failed to create directory '$target'" );
-		}
-
-		# Hand off to File::NCopy
-		require File::NCopy;
-		my $rv = File::NCopy::copy( \1, $tocopy, $target );
-		return defined $rv ? $rv : $class->_andRemove( $remove_on_fail );
+		return File::Copy::copy( $source, $target ) ? 1 
+			: $class->_andRemove( $remove_on_fail );
 	}
+
+	# Create the target directory
+	my $tocopy = File::Spec->catfile( $source, '*' ) or return undef;
+	unless ( mkdir $target, 0755 ) {
+		return $class->_andRemove( $remove_on_fail, 
+			"Failed to create directory '$target'" );
+	}
+
+	# Hand off to File::NCopy
+	require File::NCopy;
+	my $rv = File::NCopy::copy( \1, $tocopy, $target );
+	defined $rv ? $rv : $class->_andRemove( $remove_on_fail );
 }
 
 # Move a file from one place to another.
@@ -435,12 +407,9 @@ sub remove {
 		return $class->_error( "File or directory does not exist" );
 	}
 
-	# Like the others, load in File::Remove	
-	require File::Remove;
-
 	# Use File::Remove to remove it
-	my $rv = File::Remove::remove( \1, $file );
-	$rv ? 1 : undef;
+	require File::Remove;
+	File::Remove::remove( \1, $file ) ? 1 : undef;
 }
 
 # Truncate a file. That is, leave the file in place, 
@@ -451,9 +420,7 @@ sub truncate {
 	my $bytes = defined $_[0] ? shift : 0; # Beginning unless otherwise specified
 
 	# Check the file
-	if ( -d $file ) {
-		return $class->_error( "Cannot truncate a directory" );
-	}
+	return $class->_error( "Cannot truncate a directory" ) if -d $file;
 	unless ( $class->canWrite( $file ) ) {
 		return $class->_error( "Insufficient permissions to truncate file" );
 	}
@@ -497,7 +464,7 @@ sub _ensureDirectory {
 #####################################################################
 # Error handling
 
-sub errstr   { $errstr }
+sub errstr { $errstr }
 sub _error { $errstr = $_[1]; undef }
 sub _andRemove {
 	my $self = shift;
@@ -532,7 +499,7 @@ use File::Spec ();
 sub new {
 	my $class = shift;
 	my $filename = shift or return undef;
-	
+
 	bless {
 		type        => undef,
 		original    => $filename,
@@ -562,7 +529,7 @@ sub _init {
 
 	1;
 }
-	
+
 # Define the basics
 sub exists       { -e $_[0]->{original} }
 sub isaFile      { -f $_[0]->{original} }
@@ -618,7 +585,7 @@ sub _canCreate {
 	# If @dirs is empty, we don't need to create 
 	# any directories when we create the file
 	@dirs ? 2 : 1;
-}	 	
+}
 
 ### FIXME - Implement this.
 # Should check the we can delete the file.
@@ -648,9 +615,9 @@ sub open {
 		: File::Flat->open( $self->{original} )
 }
 
-sub getReadHandle { File::Flat->open( '<', $_[0]->{original} ) }
-sub getWriteHandle { File::Flat->open( '>', $_[0]->{original} ) }
-sub getAppendHandle { File::Flat->open( '>>', $_[0]->{original} ) }
+sub getReadHandle      { File::Flat->open( '<', $_[0]->{original} ) }
+sub getWriteHandle     { File::Flat->open( '>', $_[0]->{original} ) }
+sub getAppendHandle    { File::Flat->open( '>>', $_[0]->{original} ) }
 sub getReadWriteHandle { File::Flat->open( '+<', $_[0]->{original} ) }
 
 
@@ -660,12 +627,13 @@ sub getReadWriteHandle { File::Flat->open( '+<', $_[0]->{original} ) }
 #####################################################################
 # Quick File Methods
 
-sub slurp { File::Flat->slurp( $_[0]->{original} ) }
-sub read { File::Flat->read( $_[0]->{original} ) }
-sub write { File::Flat->write( $_[0]->{original} ) }
+sub slurp     { File::Flat->slurp( $_[0]->{original} ) }
+sub read      { File::Flat->read( $_[0]->{original} ) }
+sub write     { File::Flat->write( $_[0]->{original} ) }
 sub overwrite { File::Flat->overwrite( $_[0]->{original} ) }
-sub append { File::Flat->append( $_[0]->{original} ) }
-sub copy { File::Flat->copy( $_[0]->{original}, $_[1] ) }
+sub append    { File::Flat->append( $_[0]->{original} ) }
+sub copy      { File::Flat->copy( $_[0]->{original}, $_[1] ) }
+
 sub move { 
 	my $self = shift;
 	my $moveTo = shift;
@@ -681,6 +649,7 @@ sub move {
 
 	1;
 }
+
 sub remove { File::Flat->remove( $_[0]->{original} ) }
 sub truncate { File::Flat->truncate( $_[0]->{original} ) }
 
@@ -738,7 +707,7 @@ sub _ensureDirectory {
 		# Does the filesystem object exist
 		# We use '' for the file part, because not specifying it at
 		# all throws a warning.
-		my $fullpath = File::Spec->catpath( $self->{volume}, $dir_unknown, '' );		
+		my $fullpath = File::Spec->catpath( $self->{volume}, $dir_unknown, '' );
 		if ( -e $fullpath ) {
 			# This should be a directory
 			return undef unless -d $fullpath;
@@ -755,7 +724,7 @@ sub _ensureDirectory {
 		$dir_known = $dir_unknown;
 	}
 
-	$creation_root;	
+	$creation_root;
 }
 
 
@@ -799,8 +768,8 @@ some other things, such as slurp.
 
 All methods are statically called, for example, to write some stuff to a file.
 
-use File::Flat;
-File::Flat->write( 'filename', 'file contents' );
+  use File::Flat;
+  File::Flat->write( 'filename', 'file contents' );
 
 =head2 Use of other modules
 
@@ -820,61 +789,61 @@ File::Remove ( and possibly File::NCopy ) and File::Flat should work.
 
 =head1 METHODS
 
-=head2 exists( filename )
+=head2 exists $filename 
 
 Tests for the existance of the file.
 This is an exact duplicate of the -e function.
 
-=head2 isaFile( filename )
+=head2 isaFile $filename
 
 Tests whether C<filename> is a file.
 This is an exact duplicate of the -f function.
 
-=head2 isaDirectory( filename )
+=head2 isaDirectory $filename
 
 Test whether C<filename> is a directory.
 This is an exact duplicate of the -d function.
 
-=head2 canRead( filename )
+=head2 canRead $filename
 
 Does the file or directory exist, and can we read from it.
 
-=head2 canWrite( filename )
+=head2 canWrite $filename
 
 Does the file or directory exist, and can we write to it 
 B<OR> can we create the file or directory.
 
-=head2 canReadWrite( filename )
+=head2 canReadWrite $filename
 
 Does a file or directory exist, and can we both read and write it.
 
-=head2 canExecute( filename )
+=head2 canExecute $filename
 
 Does a file or directory exist, and can we execute it.
 
-=head2 canOpen( filename )
+=head2 canOpen $filename
 
 Is this something we can open a filehandle to. Returns true if filename
 exists, is a file, and we can read from it.
 
-=head2 canRemove( filename )
+=head2 canRemove $filename
 
 Can we remove the file or directory.
 
-=head2 isaText( filename )
+=head2 isaText $filename
 
 Does the file C<filename> exist, and is it a text file.
 
-=head2 isaBinary( filename )
+=head2 isaBinary $filename
 
 Does the file C<filename> exist, and is it a binary file.
 
-=head2 fileSize( filename )
+=head2 fileSize $filename
 
 If the file exists, returns it's size in bytes.
 Returns undef if the file does not exist.
 
-=head2 open( filename ) OR open( mode, filename )
+=head2 open [ $mode, ] $filename
 
 Rough analogue of the open function, but creates directories on demand
 as needed. Supports most of the normal options to the normal open function.
@@ -901,23 +870,23 @@ or other such things.
 On successfully opening the file, it returns it as an IO::File object.
 Returns undef on error.
 
-=head2 getReadHandle( filename )
+=head2 getReadHandle $filename
 
 The same as File::Flat->open( '<', 'filename' )
 
-=head2 getWriteHandle( filename )
+=head2 getWriteHandle $filename
 
 The same as File::Flat->open( '>', 'filename' )
 
-=head2 getAppendHandle( filename )
+=head2 getAppendHandle $filename
 
 The same as File::Flat->open( '>>', 'filename' )
 
-=head2 getReadWriteHandle( filename )
+=head2 getReadWriteHandle $filename
 
 The same as File::Flat->open( '+<', 'filename' )
 
-=head2 read( filename )
+=head2 read $filename
 
 Opens and reads in an entire file, chomping as needed.
 
@@ -925,15 +894,15 @@ In array context, it returns an array containing each line of the file.
 In scalar context, it returns a reference to an array containing each line of
 the file. It returns undef on error.
 
-=head2 slurp( filename )
+=head2 slurp $filename
 
-Slurp 'slurp's a file in. This attempt to read the entire file into a variable
-in as quick and memory efficient method as possible.
+The C<slurp> method 'slurps' a file in. That is it attempts to read the entire
+file into a variable in as quick and memory efficient method as possible.
 
 On success, returns a reference to a scalar, containing the entire file.
 Returns undef on error.
 
-=head2 write( filename, scalar | scalar_ref | array_ref )
+=head2 write $filename, ( $content | \$content | \@content )
 
 The C<write> method is the main method for writing content to a file.
 It takes two arguments, the location to write to, and the content to write, 
@@ -953,14 +922,14 @@ replacing any existing newline as needed.
 
 Returns true on success, and undef on error.
 
-=head2 append( filename, scalar | scalar_ref | array_ref )
+=head2 append $filename, ( $content | \$content | \@content )
 
 This method is the same as C<write>, except that it appends to the end of 
 an existing file ( or creates the file as needed ).
 
 This is the method you should be using to write to log files, etc.
 
-=head2 overwrite( filename, scalar | scalar_ref | array_ref )
+=head2 overwrite $filename, ( $content | \$content | \@content )
 
 Performs an atomic write over a file. It does this by writing to a temporary
 file, and moving the completed file over the top of the existing file ( or
@@ -969,12 +938,12 @@ partition as /tmp, this should always be atomic.
 
 This method otherwise acts the same as C<write>.
 
-=head2 copy( source, target )
+=head2 copy $source, $target
 
 The C<copy> method attempts to copy a file or directory from the source to
 the target. New directories to contain the target will be created as needed.
 
-For example C<File::Flat->( './this', './a/b/c/d/that' );> will create the 
+For example C<File::Flat-E<gt>( './this', './a/b/c/d/that' );> will create the 
 directory structure required as needed. 
 
 In the file copy case, if the target already exists, and is a writable file,
@@ -987,17 +956,17 @@ is a directory, and target does not exists, a recursive copy of source will
 be made to target. If target already exists ( file or directory ), C<copy>
 will returns with an error.
 
-=head2 move( source, target )
+=head2 move $source, $target
 
 The C<move> method follows the conventions of the 'mv' command, with the 
 exception that the directories containing target will of course be created
 on demand.
 
-=head2 remove( filename )
+=head2 remove $filename
 
 The C<remove> method will remove a file, or recursively remove a directory.
 
-=head2 truncate( filename [, size ] )
+=head2 truncate $filename [, $size ]
 
 The C<truncate> method will truncate an existing file to partular size.
 A size of 0 ( zero ) is used if no size is provided. If the file does not
@@ -1006,7 +975,7 @@ directory will fail.
 
 Returns true on success, or undef on error.
 
-=head2 makeDirectory( directory [, mode ] )
+=head2 makeDirectory $directory [, mode ]
 
 In the case where you do actually have to create a directory only, the
 C<makeDirectory> method can be used to create a directory or any depth.
@@ -1017,13 +986,13 @@ Returns true on success, returns undef on error.
 
 =head1 SUPPORT
 
-Contact the author
+Bugs should be filed at http://rt.cpan.org/NoAuth/ReportBug.html?Queue=File%3A%3AFlat
+
+For other issues or comment, contact the author
 
 =head1 TO DO
 
-  - Needs to be made more efficient.
-  - File::Spec::Object needs to be written, and File::Flat ported to use it
-  - Function interface to be written, to provide importable functions.
+Function interface to be written, ala File::Spec, to provide importable functions.
 
 =head1 AUTHORS
 
@@ -1037,7 +1006,7 @@ File::Spec
 
 =head1 COPYRIGHT
 
-Copyright (c) 2002 Adam Kennedy. All rights reserved.
+Copyright (c) 2002-2003 Adam Kennedy. All rights reserved.
 This program is free software; you can redistribute
 it and/or modify it under the same terms as Perl itself.
 

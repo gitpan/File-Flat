@@ -5,15 +5,25 @@
 # Do all the tests on ourself, since we know we will be loaded.
 
 use strict;
+use lib ();
 use UNIVERSAL 'isa';
-use File::Spec;
-use File::Spec::Functions qw{catfile catdir curdir updir};
-use lib catdir('t','lib'), (-e catdir(updir(),'lib'))
-	? (catdir(updir(),'lib'))              # Installation testing
-	: (catdir(updir(),updir(),'modules')); # Development testing
-use File::Copy 'copy';
+use File::Spec::Functions qw{catfile catdir splitdir curdir};
+BEGIN {
+	$| = 1;
+	unless ( $ENV{HARNESS_ACTIVE} ) {
+		require FindBin;
+		chdir ($FindBin::Bin = $FindBin::Bin); # Avoid a warning
+		lib->import( File::Spec->catdir(
+			File::Spec->updir,
+			File::Spec->updir,
+			'modules',
+			) );
+	}
+}
+
+use File::Copy   'copy';
 use File::Remove 'remove';
-use File::Find 'find';
+use File::Find   'find';
 use Class::Inspector ();
 
 # If we are root, some things we WANT to fail won't,
@@ -23,7 +33,7 @@ BEGIN {
 	$root = ($> == 0) ? 1 : 0;
 }
 
-use Test::More tests => ($root ? 212 : 234);
+use Test::More tests => ($root ? 206 : 228);
 
 # Set up any needed globals
 use vars qw{$loaded $ci $bad};
@@ -41,7 +51,7 @@ BEGIN {
 	%f = (
 		null => catfile( $curdir, 'null' ),
 		something => catfile( $curdir, 'something' ),
-		
+
 		rwx     => catfile( $curdir, '0000' ),
 		Rwx     => catfile( $curdir, '0400' ),
 		rWx     => catfile( $curdir, '0200' ),
@@ -52,12 +62,12 @@ BEGIN {
 		RWX     => catfile( $curdir, '0700' ),
 		gooddir => catdir( $curdir, 'gooddir' ),
 		baddir  => catdir( $curdir, 'baddir' ),
-		
+
 		ff_handle  => catfile( $curdir, 'ff_handle' ),
 		ff_binary  => catfile( $curdir, 'ff_binary' ),
 		ff_text    => catfile( $curdir, 'ff_text' ),
 		ff_content => catfile( $curdir, 'ff_content' ),
-		
+
 		ff_content2    => catfile( $curdir, 'ff_content2' ),
 		a_ff_text3     => catfile( $curdir, 'a', 'ff_text3' ),
 		abcde_ff_text3 => catfile( $curdir, 'a', 'b', 'c', 'd', 'e', 'ff_text3' ),
@@ -66,10 +76,10 @@ BEGIN {
 		abd            => catdir( $curdir, 'a', 'b', 'd' ),
 		a              => catdir( $curdir, 'a' ),
 		b              => catdir( $curdir, 'b' ),
-		
+
 		moved_1 => catfile( $curdir, 'moved_1' ),
 		moved_2 => catfile( $curdir, 'b', 'c', 'd', 'e', 'moved_2' ),		
-		
+
 		write_1 => catfile( $curdir, 'write_1' ),
 		write_2 => catfile( $curdir, 'write_2' ),
 		write_3 => catfile( $curdir, 'write_3' ),
@@ -81,16 +91,16 @@ BEGIN {
 		over_2 => catfile( $curdir, 'over_2' ),
 		over_3 => catfile( $curdir, 'over_3' ),
 		over_4 => catfile( $curdir, 'over_4' ),
-		
+
 		append_1 => catfile( $curdir, 'append_1' ),
 		append_2 => catfile( $curdir, 'append_2' ),
 		append_3 => catfile( $curdir, 'append_3' ),
 		append_4 => catfile( $curdir, 'append_4' ),
-		
+
 		size_1 => catfile( $curdir, 'size_1' ),
 		size_2 => catfile( $curdir, 'size_2' ),
 		size_3 => catfile( $curdir, 'size_3' ),
-		
+
 		trunc_1 => catfile( $curdir, 'trunc_1' ),
 		);
 }		
@@ -101,12 +111,12 @@ sub touch_test_file($) {
 	my $file = catfile( $curdir, $_[0] );
 	open FILE, ">>$file" or return undef;
 	close FILE;
-	
+
 	# And now the chmod part
 	my $mask = oct($_[0]);
 	chmod $mask, $file or return undef;
-	
-	return 1;
+
+	1;
 }
 
 sub chmod_R($$) {
@@ -115,26 +125,8 @@ sub chmod_R($$) {
 }
 
 # Check their perl version, and that modules are installed
-BEGIN {
-	ok( $] >= 5.005, "Your perl is new enough" );
-	ok( Class::Inspector->installed( 'IO::File' ), "IO::File is installed" );
-	ok( Class::Inspector->installed( 'File::Copy' ), "File::Copy is installed" );
-	ok( Class::Inspector->installed( 'File::Temp' ), "File::Temp is installed" );
-	ok( Class::Inspector->installed( 'File::Spec' ), "File::Spec is installed" );
-	require File::Spec;
-	ok( File::Spec->VERSION >= 0.82, "File::Spec is new enough" );
-	ok( Class::Inspector->installed( 'File::Flat' ), "File::Flat is installed" );
-}
-
-
-
-
-
-# Does the module itself load
-END { ok( 0, 'File::Flat loads correctly' ) unless $loaded; }
-use File::Flat;
-$loaded = 1;
-ok( 1, 'File::Flat loads correctly' );
+ok( $] >= 5.005, "Your perl is new enough" );
+use_ok( 'File::Flat' );
 
 
 
@@ -142,9 +134,9 @@ ok( 1, 'File::Flat loads correctly' );
 
 # First, let's check the APIs of both File::Flat and File::Flat::Object
 # to make sure they present matching APIs
-my $classmethods = Class::Inspector->methods( 'File::Flat' )
+my $classmethods = Class::Inspector->methods('File::Flat')
 	or die "Failed to get methods for File::Flat";
-my $objectmethods = Class::Inspector->methods( 'File::Flat::Object' )
+my $objectmethods = Class::Inspector->methods('File::Flat::Object')
 	or die "Failed to get methods for File::Flat::Objects";
 my %apihash = ();
 foreach ( grep { $_ ne 'new' } grep { ! /^_/ } (@$classmethods, @$objectmethods) ) {

@@ -1,19 +1,20 @@
 # http://module-build.sourceforge.net/META-spec.html
 #XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
 name:         File-Flat
-version:      0.91
+version:      0.92
 version_from: lib/File/Flat.pm
 installdirs:  site
 requires:
-    Class::Autouse:                1
-    Class::Inspector:              0
+    Class::Inspector:              1.06
     File::Copy:                    0
     File::Find:                    0
-    File::NCopy:                   0.32
-    File::Remove:                  0.2
-    File::Spec:                    0.82
-    File::Temp:                    0.12
+    File::NCopy:                   0.34
+    File::Remove:                  0.21
+    File::Slurp:                   9999.04
+    File::Spec:                    0.85
+    File::Temp:                    0.14
     IO::File:                      0
+    Test::More:                    0
 
 distribution_type: module
 generated_by: ExtUtils::MakeMaker version 6.16
