@@ -8,7 +8,16 @@ use strict;
 use lib '../../../modules'; # Development testing
 use lib '../lib';           # Installation testing
 use UNIVERSAL 'isa';
-use Test::Simple tests => 234;
+use vars qw{$root};
+BEGIN {
+	# Are we root?
+	if ( $> == 0 ) {
+		$root = 1;
+	} else {
+		$root = 0;
+	}
+}
+use Test::Simple tests => ($root ? 212 : 234);
 use Class::Inspector ();
 
 # Set up any needed globals
@@ -155,43 +164,64 @@ ok( File::Flat->isaDirectory( './baddir' ), "Static ->isaDirectory return true f
 
 # Test the static ->canRead method
 ok( ! File::Flat->canRead( './null' ), "Static ->canRead returns false for missing file" );
-ok( ! File::Flat->canRead( './rwx' ), "Static ->canRead returns false for mode 000 file" );
+unless ( $root ) {
+	ok( ! File::Flat->canRead( './rwx' ), "Static ->canRead returns false for mode 000 file" );
+}
 ok( File::Flat->canRead( './Rwx' ), "Static ->canRead returns true for mode 400 file" );
-ok( ! File::Flat->canRead( './rWx' ), "Static ->canRead returns false for mode 200 file" );
-ok( ! File::Flat->canRead( './rwX' ), "Static ->canRead returns false for mode 100 file" );
+unless ( $root ) {
+	ok( ! File::Flat->canRead( './rWx' ), "Static ->canRead returns false for mode 200 file" );
+	ok( ! File::Flat->canRead( './rwX' ), "Static ->canRead returns false for mode 100 file" );
+}
 ok( File::Flat->canRead( './RWx' ), "Static ->canRead returns true for mode 500 file" );
 ok( File::Flat->canRead( './RwX' ), "Static ->canRead returns true for mode 300 file" );
 ok( File::Flat->canRead( './RWX' ), "Static ->canRead returns true for mode 700 file" );
 ok( File::Flat->canRead( '.' ), "Static ->canRead returns true for . directory" );
 ok( File::Flat->canRead( './gooddir' ), "Static ->canRead returns true for readable subdirectory" );
-ok( ! File::Flat->canRead( './baddir' ), "Static ->canRead returns false for unreadable subdirectory" );
+unless ( $root ) {
+	ok( ! File::Flat->canRead( './baddir' ), "Static ->canRead returns false for unreadable subdirectory" );
+}
+
 
 # Test the static ->canWrite method
 ok( File::Flat->canWrite( './null' ), "Static ->canWrite returns true for missing, creatable, file" );
-ok( ! File::Flat->canWrite( './rwx' ), "Static ->canWrite returns false for mode 000 file" );
-ok( ! File::Flat->canWrite( './Rwx' ), "Static ->canWrite returns false for mode 400 file" );
+unless ( $root ) {
+	ok( ! File::Flat->canWrite( './rwx' ), "Static ->canWrite returns false for mode 000 file" );
+	ok( ! File::Flat->canWrite( './Rwx' ), "Static ->canWrite returns false for mode 400 file" );
+}
 ok( File::Flat->canWrite( './rWx' ), "Static ->canWrite returns true for mode 200 file" );
-ok( ! File::Flat->canWrite( './rwX' ), "Static ->canWrite returns false for mode 100 file" );
+unless ( $root ) {
+	ok( ! File::Flat->canWrite( './rwX' ), "Static ->canWrite returns false for mode 100 file" );
+}
 ok( File::Flat->canWrite( './RWx' ), "Static ->canWrite returns true for mode 500 file" );
-ok( ! File::Flat->canWrite( './RwX' ), "Static ->canWrite returns false for mode 300 file" );
+unless ( $root ) {
+	ok( ! File::Flat->canWrite( './RwX' ), "Static ->canWrite returns false for mode 300 file" );
+}
 ok( File::Flat->canWrite( './RWX' ), "Static ->canWrite returns true for mode 700 file" );
 ok( File::Flat->canWrite( '.' ), "Static ->canWrite returns true for . directory" );
 ok( File::Flat->canWrite( './gooddir' ), "Static ->canWrite returns true for writable subdirectory" );
-ok( ! File::Flat->canWrite( './baddir' ), "Static ->canWrite returns false for unwritable subdirectory" );
-ok( ! File::Flat->canWrite( './baddir/file' ), "Static ->canWrite returns false for missing, non-creatable file" );
+unless ( $root ) {
+	ok( ! File::Flat->canWrite( './baddir' ), "Static ->canWrite returns false for unwritable subdirectory" );
+	ok( ! File::Flat->canWrite( './baddir/file' ), "Static ->canWrite returns false for missing, non-creatable file" );
+}
 
 # Test the static ->canReadWrite method
 ok( ! File::Flat->canReadWrite( './null' ), "Static ->canReadWrite returns false for missing file" );
-ok( ! File::Flat->canReadWrite( './rwx' ), "Static ->canReadWrite returns false for mode 000 file" );
-ok( ! File::Flat->canReadWrite( './Rwx' ), "Static ->canReadWrite returns false for mode 400 file" );
-ok( ! File::Flat->canReadWrite( './rWx' ), "Static ->canReadWrite returns false for mode 200 file" );
-ok( ! File::Flat->canReadWrite( './rwX' ), "Static ->canReadWrite returns false for mode 100 file" );
+unless ( $root ) {
+	ok( ! File::Flat->canReadWrite( './rwx' ), "Static ->canReadWrite returns false for mode 000 file" );
+	ok( ! File::Flat->canReadWrite( './Rwx' ), "Static ->canReadWrite returns false for mode 400 file" );
+	ok( ! File::Flat->canReadWrite( './rWx' ), "Static ->canReadWrite returns false for mode 200 file" );
+	ok( ! File::Flat->canReadWrite( './rwX' ), "Static ->canReadWrite returns false for mode 100 file" );
+}
 ok( File::Flat->canReadWrite( './RWx' ), "Static ->canReadWrite returns true for mode 500 file" );
-ok( ! File::Flat->canReadWrite( './RwX' ), "Static ->canReadWrite returns false for mode 300 file" );
+unless ( $root ) {
+	ok( ! File::Flat->canReadWrite( './RwX' ), "Static ->canReadWrite returns false for mode 300 file" );
+}
 ok( File::Flat->canReadWrite( './RWX' ), "Static ->canReadWrite returns true for mode 700 file" );
 ok( File::Flat->canReadWrite( '.' ), "Static ->canReadWrite returns true for . directory" );
 ok( File::Flat->canReadWrite( './gooddir' ), "Static ->canReadWrite returns true for readwritable subdirectory" );
-ok( ! File::Flat->canReadWrite( './baddir' ), "Static ->canReadWrite returns false for unreadwritable subdirectory" );
+unless ( $root ) {
+	ok( ! File::Flat->canReadWrite( './baddir' ), "Static ->canReadWrite returns false for unreadwritable subdirectory" );
+}
 
 # Test the static ->canExecute method
 ok( ! File::Flat->canExecute( './null' ), "Static ->canExecute returns false for missing file" );
@@ -204,14 +234,20 @@ ok( File::Flat->canExecute( './RwX' ), "Static ->canExecute returns true for mod
 ok( File::Flat->canExecute( './RWX' ), "Static ->canExecute returns true for mode 700 file" );
 ok( File::Flat->canExecute( '.' ), "Static ->canExecute returns true for . directory" );
 ok( File::Flat->canExecute( './gooddir' ), "Static ->canExecute returns true for executable subdirectory" );
-ok( ! File::Flat->canExecute( './baddir' ), "Static ->canExecute returns false for unexecutable subdirectory" );
+unless ( $root ) {
+	ok( ! File::Flat->canExecute( './baddir' ), "Static ->canExecute returns false for unexecutable subdirectory" );
+}
 
 # Test the static ->canOpen method
 ok( ! File::Flat->canOpen( './null' ), "Static ->canOpen returns false for missing file" );
-ok( ! File::Flat->canOpen( './rwx' ), "Static ->canOpen returns false for mode 000 file" );
+unless ( $root ) {
+	ok( ! File::Flat->canOpen( './rwx' ), "Static ->canOpen returns false for mode 000 file" );
+}
 ok( File::Flat->canOpen( './Rwx' ), "Static ->canOpen returns true for mode 400 file" );
-ok( ! File::Flat->canOpen( './rWx' ), "Static ->canOpen returns false for mode 200 file" );
-ok( ! File::Flat->canOpen( './rwX' ), "Static ->canOpen returns false for mode 100 file" );
+unless ( $root ) {
+	ok( ! File::Flat->canOpen( './rWx' ), "Static ->canOpen returns false for mode 200 file" );
+	ok( ! File::Flat->canOpen( './rwX' ), "Static ->canOpen returns false for mode 100 file" );
+}
 ok( File::Flat->canOpen( './RWx' ), "Static ->canOpen returns true for mode 500 file" );
 ok( File::Flat->canOpen( './RwX' ), "Static ->canOpen returns true for mode 300 file" );
 ok( File::Flat->canOpen( './RWX' ), "Static ->canOpen returns true for mode 700 file" );
@@ -281,7 +317,9 @@ ok( ! $rv, "Static ->copy return undef when file does not exist" );
 
 # Directory copying
 $rv = File::Flat->copy( './a/b/c', './a/b/d' );
-ok( $rv, '->copy( dir, dir ) returns true' );
+unless ( $root ) {
+	ok( $rv, '->copy( dir, dir ) returns true' );
+}
 ok( -d './a/b/d', '->copy( dir, dir ): New dir exists' );
 ok( -f './a/b/d/d/e/ff_text3', '->( dir, dir ): Files within directory were copied' );
 
@@ -498,7 +536,9 @@ ok( $rv == 0, "->fileSize( file ) returns the correct size for empty file" );
 
 # Test the ->truncate method. Use the append files
 ok( ! defined File::Flat->truncate(), '->truncate() correctly returns error' );
-ok( ! defined File::Flat->truncate( './rwx' ), '->truncate( file ) returns error when no permissions' );
+unless ( $root ) {
+	ok( ! defined File::Flat->truncate( './rwx' ), '->truncate( file ) returns error when no permissions' );
+}
 ok( ! defined File::Flat->truncate( './b' ), '->truncate( directory ) returns error' );
 $rv = File::Flat->truncate( './trunc_1' );
 ok( $rv, '->truncate( file ) returns true for non-existant file' );

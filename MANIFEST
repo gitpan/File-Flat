@@ -8,6 +8,8 @@ ff_content
 ff_text
 lib/File/Flat.pm
 t/01_main.t
+t/1
+t/cover_db/cover.4
 t/ff_binary
 t/ff_content
 t/ff_text
