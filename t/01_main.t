@@ -17,7 +17,7 @@ BEGIN {
 		$root = 0;
 	}
 }
-use Test::Simple tests => ($root ? 212 : 234);
+use Test::More tests => 234;
 use Class::Inspector ();
 
 # Set up any needed globals
@@ -28,8 +28,8 @@ BEGIN {
 }
 
 use vars qw{$content_string @content_array $content_length};
-BEGIN { 
-	$content_string = "one\ntwo\nthree\n\n"; 
+BEGIN {
+	$content_string = "one\ntwo\nthree\n\n";
 	@content_array = ( 'one', 'two', 'three', '' );
 	$content_length = length $content_string;
 }
@@ -47,7 +47,7 @@ BEGIN {
 	ok( File::Spec->VERSION >= 0.82, "File::Spec is new enough" );
 	ok( Class::Inspector->installed( 'File::Flat' ), "File::Flat is installed" );
 }
-	
+
 
 
 
@@ -128,7 +128,7 @@ unless ( -e './baddir' ) {
 
 
 
-### Test Section 1 
+### Test Section 1
 # Here we will test all the static methods that are handled directly, and
 # not passed on to the object form of the methods.
 
@@ -352,7 +352,7 @@ ok( isa( $content, 'SCALAR' ), "Static ->slurp returns a scalar reference" );
 ok( length $$content, "Static ->slurp returns content" );
 ok( $$content eq $content_string, "Static ->slurp returns the correct file contents" );
 
-# Test the static ->read 
+# Test the static ->read
 $content = File::Flat->read();
 ok( ! defined $content, "Static ->read returns error on no arguments" );
 $content = File::Flat->read( './nonexistant' );
@@ -387,7 +387,7 @@ $matches = (
 	) ? 1 : 0;
 ok( $matches, "Static ->read (array context) returns the expected content" );
 
-	
+
 
 
 
@@ -498,7 +498,7 @@ ok( check_content_file( './append_3' ), "->append( file, array_ref ) writes the 
 
 # Now let's try an actual append
 ok( File::Flat->append( './append_4', "one\ntwo\n" ), "Preparing for real append" );
-my $rv = File::Flat->append( './append_4', "three\n\n" );
+$rv = File::Flat->append( './append_4', "three\n\n" );
 ok( $rv, "->append( file, array_ref ) for an actual append returns true" );
 ok( -e './append_4', "->append( file, array_ref ): File still exists" );
 ok( check_content_file( './append_4' ), "->append( file, array_ref ) results in the correct file contents" );
@@ -513,7 +513,7 @@ ok( check_content_file( './append_4' ), "->append( file, array_ref ) results in 
 ok( File::Flat->write( './size_1', 'abcdefg' )
 	&& File::Flat->write( './size_2', join '', ( 'd' x 100000 ) )
 	&& File::Flat->write( './size_3', '' ),
-	"Preparing for file size tests" 
+	"Preparing for file size tests"
 	);
 ok( ! defined File::Flat->fileSize(), "->fileSize() correctly returns error" );
 ok( ! defined File::Flat->fileSize( './nonexistant' ), '->fileSize( file ) returns error for nonexistant' );
@@ -571,18 +571,18 @@ sub check_content_file {
 	my $file = shift;
 	return undef unless -e $file;
 	return undef unless -r $file;
-	
+
 	open( FILE, $file ) or return undef;
 	@content = <FILE>;
 	chomp @content;
 	close FILE;
-	
+
 	return undef unless scalar @content == 4;
 	return undef unless $content[0] eq 'one';
 	return undef unless $content[1] eq 'two';
 	return undef unless $content[2] eq 'three';
 	return undef unless $content[3] eq '';
-	
+
 	return 1;
 }
 
@@ -591,7 +591,7 @@ END {
 	# Make them less fucked up
 	system( 'chmod -R u+rwx *' );
 	foreach ( qw{
-		rwx rwX rWx Rwx rWX RwX RWx RWX 
+		rwx rwX rWx Rwx rWX RwX RWx RWX
 		ff_handle moved_1
 		write_1 write_2 write_3 write_4 write_5 write_6
 		over_1 over_2 over_3 over_4

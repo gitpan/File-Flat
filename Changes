@@ -1,5 +1,8 @@
 Revision history for Perl extension File::Flat.
 
+0.7  Tue May 06 23:58:54 2003
+    - IO::File cannot be autoloaded. Always load it
+
 0.6  Sun Dec 08 23:24:15 2002
     - Fixes a bug where the tests will fail is run as root
 

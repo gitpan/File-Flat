@@ -12,12 +12,12 @@ use UNIVERSAL 'isa';
 
 # Load required modules.
 use File::Spec ();
-use Class::Autouse qw{IO::File};
+use IO::File ();
 
 use vars qw{$VERSION %modes $errstr};
 BEGIN {
 	# Set the version
-	$VERSION = 0.6;
+	$VERSION = 0.7;
 
 	# Create a map of all file open modes we support,
 	# and which ones will create a new file if needed.
@@ -41,16 +41,16 @@ BEGIN {
 # Examining the file system
 
 # Does a filesystem entity exist.
-sub exists { -e $_[1] }
+sub exists { defined $_[1] and -e $_[1] }
 
 # Is a filesystem object a file.
-sub isaFile { -f $_[1] }
+sub isaFile { defined $_[1] and -f $_[1] }
 
 # Is a filesystem object a directory.
-sub isaDirectory { -d $_[1] }
+sub isaDirectory { defined $_[1] and -d $_[1] }
 
 # Do we have permission to read a filesystem object.
-sub canRead { -e $_[1] and -r $_[1] }
+sub canRead { defined $_[1] and -e $_[1] and -r $_[1] }
 
 # Do we have permission to write to a filesystem object.
 # If it doesn't exist, can we create it.
@@ -64,13 +64,13 @@ sub canWrite {
 }
 
 # Can we both read and write to a filesystem object.
-sub canReadWrite { -e $_[1] and -r $_[1] and -w $_[1] }
+sub canReadWrite { defined $_[1] and -r $_[1] and -w $_[1] }
 
 # Do we have permission to execute a filesystem object
-sub canExecute { -e $_[1] and -x $_[1] }
+sub canExecute { defined $_[1] and -x $_[1] }
 
 # Could we open this as a file
-sub canOpen { -e $_[1] and -f $_[1] and -r $_[1] }
+sub canOpen { defined $_[1] and -f $_[1] and -r $_[1] }
 
 # Could a file or directory be removed, were we to try
 sub canRemove {
@@ -80,10 +80,10 @@ sub canRemove {
 }
 
 # Is the file a text file
-sub isText { -e $_[1] and -f $_[1] and -T $_[1] }
+sub isText { defined $_[1] and -f $_[1] and -T $_[1] }
 
 # Is a file a binary file.
-sub isBinary { -e $_[1] and -f $_[1] and -B $_[1] }
+sub isBinary { defined $_[1] and -f $_[1] and -B $_[1] }
 
 # Stat based methods. 
 # I've included only the most usefull one I can think of.
@@ -172,7 +172,7 @@ sub getReadWriteHandle { $_[0]->open( '+<', $_[1] ) }
 # Returns undef on error.
 sub slurp {
 	my $class = shift;
-	my $file = shift;
+	my $file = shift or return undef;
 	
 	# Check the file
 	unless ( $class->canOpen( $file ) ) {
@@ -350,6 +350,7 @@ sub append {
 # We apply our own copy semantics.
 sub copy {
 	my $class = shift;
+	return undef unless defined($_[0]) && defined($_[1]);
 	my $source = File::Spec->canonpath( shift ) or return undef;
 	my $target = File::Spec->canonpath( shift ) or return undef;
 	

@@ -15,7 +15,7 @@ WriteMakefile(
 		'Class::Inspector' => 0, # For the test script
 	},
 	($] >= 5.005) ? (
-		'AUTHOR'     => 'Adam Kennedy (adam@ali.as)',
+		'AUTHOR'     => 'Adam Kennedy (cpan@ali.as)',
 		'ABSTRACT'   => 'Provides an interface to a directory-less flat filesystem',
 	) : (),
 );
