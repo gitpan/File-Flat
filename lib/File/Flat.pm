@@ -17,7 +17,7 @@ use Class::Autouse qw{IO::File};
 use vars qw{$VERSION %modes $errstr};
 BEGIN {
 	# Set the version
-	$VERSION = 0.3;
+	$VERSION = 0.4;
 
 	# Create a map of all file open modes we support,
 	# and which ones will create a new file if needed.
@@ -695,7 +695,6 @@ sub makeDirectory {
 	my $mode = shift || 0755;
 	if ( -e $self->{original} ) {
 		return 1 if -d $self->{original};
-	} else {
 		return $self->_andError( "'$self->{original}' already exists, and is a file" );
 	}
 	$self->_init() unless defined $self->{type};
