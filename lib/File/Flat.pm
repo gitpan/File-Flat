@@ -17,7 +17,7 @@ use Class::Autouse qw{IO::File};
 use vars qw{$VERSION %modes $errstr};
 BEGIN {
 	# Set the version
-	$VERSION = 0.4;
+	$VERSION = 0.5;
 
 	# Create a map of all file open modes we support,
 	# and which ones will create a new file if needed.
@@ -593,8 +593,10 @@ sub _canCreate {
 	while ( defined( my $dir = shift @dirs ) ) {
 		$dir_unknown = File::Spec->catdir( $dir_known, $dir );
 		
-		# Does the filesystem object exist
-		my $fullpath = File::Spec->catpath( $self->{volume}, $dir_unknown );
+		# Does the filesystem object exist.
+		# We use '' for the file part, because not specifying it at
+		# all throws a warning.
+		my $fullpath = File::Spec->catpath( $self->{volume}, $dir_unknown, '' );
 		last unless -e $fullpath;
 
 		# This should be a directory
@@ -732,7 +734,9 @@ sub _ensureDirectory {
 		$dir_unknown = File::Spec->catdir( $dir_known, $dir );
 		
 		# Does the filesystem object exist
-		my $fullpath = File::Spec->catpath( $self->{volume}, $dir_unknown );		
+		# We use '' for the file part, because not specifying it at
+		# all throws a warning.
+		my $fullpath = File::Spec->catpath( $self->{volume}, $dir_unknown, '' );		
 		if ( -e $fullpath ) {
 			# This should be a directory
 			return undef unless -d $fullpath;
