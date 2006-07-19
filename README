@@ -267,18 +267,18 @@ TO DO
 SUPPORT
     Bugs should be filed at via the CPAN bug tracker at:
 
-    <http://rt.cpan.org/NoAuth/ReportBug.html?Queue=File%3A%3AFlat>
+    <http://rt.cpan.org/NoAuth/ReportBug.html?Queue=File-Flat>
 
     For other issues or comments, contact the author
 
 AUTHORS
-    Adam Kennedy (Maintainer), <http://ali.as/>, cpan@ali.as
+    Adam Kennedy <adamk@cpan.org>
 
 SEE ALSO
-    File::Spec
+    File::Spec, <http://ali.as/>
 
 COPYRIGHT
-    Copyright (c) 2002 - 2004 Adam Kennedy. All rights reserved. This
+    Copyright (c) 2002 - 2006 Adam Kennedy. All rights reserved. This
     program is free software; you can redistribute it and/or modify it under
     the same terms as Perl itself.
 

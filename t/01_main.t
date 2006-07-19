@@ -3,17 +3,8 @@
 # Formal testing for File::Flat
 
 use strict;
-use lib ();
-use UNIVERSAL 'isa';
 use File::Spec::Functions ':ALL';
-BEGIN {
-	$| = 1;
-	unless ( $ENV{HARNESS_ACTIVE} ) {
-		require FindBin;
-		chdir ($FindBin::Bin = $FindBin::Bin); # Avoid a warning
-		lib->import( catdir( updir(), updir(), 'modules') );
-	}
-}
+BEGIN { $| = 1 }
 
 use File::Copy   'copy';
 use File::Remove 'remove';
@@ -26,7 +17,7 @@ BEGIN {
 	$root = ($> == 0) ? 1 : 0;
 }
 
-use Test::More tests => 266;
+use Test::More tests => 269;
 
 # Set up any needed globals
 use vars qw{$loaded $ci $bad};
@@ -36,74 +27,74 @@ BEGIN {
 	$loaded = 0;
 	$| = 1;
 	$content_string = "one\ntwo\nthree\n\n";
-	@content_array = ( 'one', 'two', 'three', '' );
+	@content_array  = ( 'one', 'two', 'three', '' );
 	$content_length = length $content_string;
 
 	# Define all the paths we are going to need in advance
 	$curdir = curdir();
 	%f = (
-		null => catfile( $curdir, 'null' ),
-		something => catfile( $curdir, 'something' ),
+		null           => catfile( $curdir, 'null'      ),
+		something      => catfile( $curdir, 'something' ),
 
-		rwx     => catfile( $curdir, '0000' ),
-		Rwx     => catfile( $curdir, '0400' ),
-		rWx     => catfile( $curdir, '0200' ),
-		rwX     => catfile( $curdir, '0100' ),
-		RWx     => catfile( $curdir, '0600' ),
-		RwX     => catfile( $curdir, '0500' ),
-		rWX     => catfile( $curdir, '0300' ),
-		RWX     => catfile( $curdir, '0700' ),
-		gooddir => catdir( $curdir, 'gooddir' ),
-		baddir  => catdir( $curdir, 'baddir' ),
+		rwx            => catfile( $curdir, '0000'   ),
+		Rwx            => catfile( $curdir, '0400'   ),
+		rWx            => catfile( $curdir, '0200'   ),
+		rwX            => catfile( $curdir, '0100'   ),
+		RWx            => catfile( $curdir, '0600'   ),
+		RwX            => catfile( $curdir, '0500'   ),
+		rWX            => catfile( $curdir, '0300'   ),
+		RWX            => catfile( $curdir, '0700'   ),
+		gooddir        => catdir(  $curdir, 'gooddir' ),
+		baddir         => catdir(  $curdir, 'baddir'  ),
 
-		ff_handle  => catfile( $curdir, 'ff_handle' ),
-		ff_binary  => catfile( $curdir, 'ff_binary' ),
-		ff_text    => catfile( $curdir, 'ff_text' ),
-		ff_content => catfile( $curdir, 'ff_content' ),
+		ff_handle      => catfile( $curdir, 't', 'ff_handle'  ),
+		ff_binary      => catfile( $curdir, 't', 'ff_binary'  ),
+		ff_text        => catfile( $curdir, 't', 'ff_text'    ),
+		ff_content     => catfile( $curdir, 't', 'ff_content' ),
 
-		ff_content2    => catfile( $curdir, 'ff_content2' ),
+		ff_content2    => catfile( $curdir, 'ff_content2'   ),
 		a_ff_text3     => catfile( $curdir, 'a', 'ff_text3' ),
 		abcde_ff_text3 => catfile( $curdir, 'a', 'b', 'c', 'd', 'e', 'ff_text3' ),
 		abdde_ff_text3 => catfile( $curdir, 'a', 'b', 'd', 'd', 'e', 'ff_text3' ),
-		abc            => catdir( $curdir, 'a', 'b', 'c' ),
-		abd            => catdir( $curdir, 'a', 'b', 'd' ),
-		a              => catdir( $curdir, 'a' ),
-		b              => catdir( $curdir, 'b' ),
+		abc            => catdir(  $curdir, 'a', 'b', 'c' ),
+		abd            => catdir(  $curdir, 'a', 'b', 'd' ),
+		a              => catdir(  $curdir, 'a' ),
+		b              => catdir(  $curdir, 'b' ),
 
-		moved_1 => catfile( $curdir, 'moved_1' ),
-		moved_2 => catfile( $curdir, 'b', 'c', 'd', 'e', 'moved_2' ),		
+		moved_1        => catfile( $curdir, 'moved_1' ),
+		moved_2        => catfile( $curdir, 'b', 'c', 'd', 'e', 'moved_2' ),		
 
-		write_1 => catfile( $curdir, 'write_1' ),
-		write_2 => catfile( $curdir, 'write_2' ),
-		write_3 => catfile( $curdir, 'write_3' ),
-		write_4 => catfile( $curdir, 'write_4' ),
-		write_5 => catfile( $curdir, 'write_5' ),
-		write_6 => catfile( $curdir, 'write_6' ),
+		write_1        => catfile( $curdir, 'write_1' ),
+		write_2        => catfile( $curdir, 'write_2' ),
+		write_3        => catfile( $curdir, 'write_3' ),
+		write_4        => catfile( $curdir, 'write_4' ),
+		write_5        => catfile( $curdir, 'write_5' ),
+		write_6        => catfile( $curdir, 'write_6' ),
 
-		over_1 => catfile( $curdir, 'over_1' ),
-		over_2 => catfile( $curdir, 'over_2' ),
-		over_3 => catfile( $curdir, 'over_3' ),
-		over_4 => catfile( $curdir, 'over_4' ),
+		over_1         => catfile( $curdir, 'over_1' ),
+		over_2         => catfile( $curdir, 'over_2' ),
+		over_3         => catfile( $curdir, 'over_3' ),
+		over_4         => catfile( $curdir, 'over_4' ),
 
-		append_1 => catfile( $curdir, 'append_1' ),
-		append_2 => catfile( $curdir, 'append_2' ),
-		append_3 => catfile( $curdir, 'append_3' ),
-		append_4 => catfile( $curdir, 'append_4' ),
+		append_1       => catfile( $curdir, 'append_1' ),
+		append_2       => catfile( $curdir, 'append_2' ),
+		append_3       => catfile( $curdir, 'append_3' ),
+		append_4       => catfile( $curdir, 'append_4' ),
 
-		size_1 => catfile( $curdir, 'size_1' ),
-		size_2 => catfile( $curdir, 'size_2' ),
-		size_3 => catfile( $curdir, 'size_3' ),
+		size_1         => catfile( $curdir, 'size_1' ),
+		size_2         => catfile( $curdir, 'size_2' ),
+		size_3         => catfile( $curdir, 'size_3' ),
 
-		trunc_1 => catfile( $curdir, 'trunc_1' ),
+		trunc_1        => catfile( $curdir, 'trunc_1' ),
 
-		prune    => catdir( $curdir, 'prunedir' ),
-		prune_1  => catdir( $curdir, 'prunedir', 'single' ),
-		prune_2  => catdir( $curdir, 'prunedir', 'multiple', 'lots', 'of', 'dirs' ),
-		prune_2a => catdir( $curdir, 'prunedir', 'multiple' ),
-		prune_3  => catdir( $curdir, 'prunedir', 'onlyone', 'thisone' ),
-		prune_4  => catdir( $curdir, 'prunedir', 'onlyone', 'notthis' ),
-		prune_4a => catdir( $curdir, 'prunedir', 'onlyone' ),
-		prune_5  => catdir( $curdir, 'prunedir', 'onlyone', 'notthis', 'orthis' ),
+		prune          => catdir(  $curdir, 'prunedir' ),
+		prune_1        => catdir(  $curdir, 'prunedir', 'single' ),
+		prune_2        => catdir(  $curdir, 'prunedir', 'multiple', 'lots', 'of', 'dirs' ),
+		prune_2a       => catdir(  $curdir, 'prunedir', 'multiple' ),
+		prune_3        => catdir(  $curdir, 'prunedir', 'onlyone', 'thisone' ),
+		prune_4        => catdir(  $curdir, 'prunedir', 'onlyone', 'notthis' ),
+		prune_4a       => catdir(  $curdir, 'prunedir', 'onlyone' ),
+		prune_5        => catdir(  $curdir, 'prunedir', 'onlyone', 'notthis', 'orthis' ),
 		
 		remove_prune_1 => catfile( $curdir, 'prunedir', 'remove', 'prune_1' ),
 		remove_prune_2 => catfile( $curdir, 'prunedir', 'remove', 'prune_2' ),
@@ -145,6 +136,10 @@ use_ok( 'File::Flat' );
 
 
 
+# Check for the three files that should already exist
+ok( -f $f{ff_text},    'ff_text exists'    );
+ok( -f $f{ff_binary},  'ff_binary exists'  );
+ok( -f $f{ff_content}, 'ff_content exists' );
 
 # Create the files for the file test section
 touch_test_file('0000') or die "Failed to create file we can do anything to";
@@ -343,16 +338,16 @@ ok( ! defined $handle{readwritehandle}, "Static ->getReadWriteHandle returns und
 
 # Do the open methods at least return a file handle
 copy( $f{ff_text}, $f{ff_handle} ) or die "Failed to copy file in preperation for test";
-$handle{generic} = File::Flat->open( $f{ff_handle} );
-$handle{readhandle} = File::Flat->getReadHandle( $f{ff_handle} );
-$handle{writehandle} = File::Flat->getWriteHandle( $f{ff_handle} );
-$handle{appendhandle} = File::Flat->getAppendHandle( $f{ff_handle} );
+$handle{generic}         = File::Flat->open( $f{ff_handle} );
+$handle{readhandle}      = File::Flat->getReadHandle( $f{ff_handle} );
+$handle{writehandle}     = File::Flat->getWriteHandle( $f{ff_handle} );
+$handle{appendhandle}    = File::Flat->getAppendHandle( $f{ff_handle} );
 $handle{readwritehandle} = File::Flat->getReadWriteHandle( $f{ff_handle} );
-ok( isa( $handle{generic}, 'IO::File' ), "Static ->open call returns IO::File object" );
-ok( isa( $handle{readhandle}, 'IO::File' ), "Static ->getReadHandle returns IO::File object" );
-ok( isa( $handle{writehandle}, 'IO::File' ), "Static ->getWriteHandle returns IO::File object" );
-ok( isa( $handle{appendhandle}, 'IO::File' ), "Static ->getAppendHandle returns IO::File object" );
-ok( isa( $handle{readwritehandle}, 'IO::File' ), "Static ->getReadWriteHandle returns IO::File object" );
+isa_ok( $handle{generic},         'IO::File' ); # Static ->open call returns IO::File object
+isa_ok( $handle{readhandle},      'IO::File' ); # Static ->getReadHandle returns IO::File object
+isa_ok( $handle{writehandle},     'IO::File' ); # Static ->getWriteHandle returns IO::File object
+isa_ok( $handle{appendhandle},    'IO::File' ); # Static ->getAppendHandle returns IO::File object
+isa_ok( $handle{readwritehandle}, 'IO::File' ); # Static ->getReadWriteHandle returns IO::File object
 
 
 
@@ -414,7 +409,7 @@ ok( ! defined $content, "Static ->slurp returns error on bad file" );
 $content = File::Flat->slurp( $f{ff_content} );
 ok( defined $content, "Static ->slurp returns defined" );
 ok( defined $content, "Static ->slurp returns something" );
-ok( isa( $content, 'SCALAR' ), "Static ->slurp returns a scalar reference" );
+ok( UNIVERSAL::isa( $content, 'SCALAR' ), "Static ->slurp returns a scalar reference" );
 ok( length $$content, "Static ->slurp returns content" );
 ok( $$content eq $content_string, "Static ->slurp returns the correct file contents" );
 
@@ -427,7 +422,7 @@ $content = File::Flat->read( $f{ff_content} );
 ok( defined $content, "Static ->read doesn't error on good file" );
 ok( $content, "Static ->read returns true on good file" );
 ok( ref $content, "Static ->read returns a reference on good file" );
-ok( isa( $content, 'ARRAY' ), "Static ->read returns an array ref on good file" );
+ok( UNIVERSAL::isa( $content, 'ARRAY' ), "Static ->read returns an array ref on good file" );
 ok( scalar @$content == 4, "Static ->read returns the correct length of data" );
 my $matches = (
 	$content->[0] eq 'one'
@@ -480,7 +475,7 @@ ok( check_content_file( $f{write_3} ), "->write( file, array_ref ) writes the co
 # Repeat with a handle first argument
 my $handle = File::Flat->getWriteHandle( $f{write_4} );
 ok( ! File::Flat->write( $handle ), "->write( handle ) fails correctly" );
-ok( isa( $handle, 'IO::Handle' ), 'Got write handle for test' );
+ok( UNIVERSAL::isa( $handle, 'IO::Handle' ), 'Got write handle for test' );
 $rv = File::Flat->write( $handle, $content_string );
 $handle->close();
 ok( $rv, "->write( handle, string ) returns true" );
@@ -488,7 +483,7 @@ ok( -e $f{write_4}, "->write( handle, string ) actually creates a file" );
 ok( check_content_file( $f{write_1} ), "->write( handle, string ) writes the correct content" );
 
 $handle = File::Flat->getWriteHandle( $f{write_5} );
-ok( isa( $handle, 'IO::Handle' ), 'Got write handle for test' );
+ok( UNIVERSAL::isa( $handle, 'IO::Handle' ), 'Got write handle for test' );
 $rv = File::Flat->write( $handle, $content_string );
 $handle->close();
 ok( $rv, "->File::Flat->write( handle, string_ref ) returns true" );
@@ -496,7 +491,7 @@ ok( -e $f{write_5}, "->write( handle, string_ref ) actually creates a file" );
 ok( check_content_file( $f{write_5} ), "->write( handle, string_ref ) writes the correct content" );
 
 $handle = File::Flat->getWriteHandle( $f{write_6} );
-ok( isa( $handle, 'IO::Handle' ), 'Got write handle for test' );
+ok( UNIVERSAL::isa( $handle, 'IO::Handle' ), 'Got write handle for test' );
 $rv = File::Flat->write( $handle, \@content_array );
 $handle->close();
 ok( $rv, "->File::Flat->write( handle, array_ref ) returns true" );
@@ -741,7 +736,7 @@ sub check_content_file {
 END {
 	# When we finish there are going to be some pretty fucked up files.
 	# Make them less so.
-	foreach ( qw{
+	foreach my $clean1 ( qw{
 		0000 0100 0200 0300 0400 0500 0600 0700
 		ff_handle moved_1
 		write_1 write_2 write_3 write_4 write_5 write_6
@@ -750,8 +745,17 @@ END {
 		size_1 size_2 size_3
 		trunc_1
 	} ) {
-		chmod 0600, $_;
-		unlink $_;
+		if ( -e $clean1 ) {
+			chmod 0600, $clean1;
+			unlink $clean1;
+			next;
+		}
+		my $clean2 = catfile( 't', $clean1 );
+		if ( -e $clean2 ) {
+			chmod 0600, $clean2;
+			unlink $clean2;
+			next;
+		}
 	}
 
 	foreach my $dir ( qw{a b baddir gooddir} ) {

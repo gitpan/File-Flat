@@ -6,8 +6,8 @@ package File::Flat;
 # This should work on non-Unix platforms, but there may be some
 # minor remaining bugs.
 
+use 5.005;
 use strict;
-use UNIVERSAL 'isa';
 use Cwd         ();
 use File::Spec  ();
 use IO::File    ();
@@ -19,7 +19,7 @@ use prefork 'File::Remove';
 
 use vars qw{$VERSION $errstr %modes $AUTO_PRUNE};
 BEGIN {
-	$VERSION = '0.95';
+	$VERSION = '0.96';
 
 	# The main error string
 	$errstr  = '';
@@ -221,7 +221,7 @@ sub write {
 	# This also makes sure the stuff we are going to write is ok.
 	my $contents;
 	if ( ref $_[0] ) {
-		unless ( isa( $_[0], 'SCALAR' ) or isa( $_[0], 'ARRAY' ) ) {
+		unless ( UNIVERSAL::isa($_[0], 'SCALAR') or UNIVERSAL::isa($_[0], 'ARRAY') ) {
 			return $class->_error( "Unknown or invalid argument to ->write" );
 		}
 
@@ -244,7 +244,7 @@ sub write {
 	}
 
 	# Write the contents to the handle
-	if ( isa( $contents, 'SCALAR' ) ) {
+	if ( UNIVERSAL::isa($contents, 'SCALAR') ) {
 		$file->print( $$contents ) or return undef;
 	} else {
 		foreach ( @$contents ) {
@@ -512,7 +512,6 @@ package File::Flat::Object;
 # The methods are the same as for File::Flat, where applicable.
 
 use strict;
-use UNIVERSAL 'isa';
 use File::Spec ();
 
 sub new {
@@ -1109,8 +1108,7 @@ Returns true on success, returns undef on error.
 =head1 TO DO
 
 Function interface to be written, like
-L<File::Spec::Functions|File::Spec::Functions>, to provide importable
-functions.
+L<File::Spec::Functions>, to provide importable functions.
 
 There's something bigger here too, I'm not exactly sure what it is,
 but I think there might be the beginings of a unified filesystem
@@ -1120,21 +1118,21 @@ interface here... FSI.pm
 
 Bugs should be filed at via the CPAN bug tracker at:
 
-L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=File%3A%3AFlat>
+L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=File-Flat>
 
 For other issues or comments, contact the author
 
 =head1 AUTHORS
 
-Adam Kennedy (Maintainer), L<http://ali.as/>, cpan@ali.as
+Adam Kennedy E<lt>adamk@cpan.orgE<gt>
 
 =head1 SEE ALSO
 
-L<File::Spec|File::Spec>
+L<File::Spec>, L<http://ali.as/>
 
 =head1 COPYRIGHT
 
-Copyright (c) 2002 - 2004 Adam Kennedy. All rights reserved.
+Copyright (c) 2002 - 2006 Adam Kennedy. All rights reserved.
 This program is free software; you can redistribute
 it and/or modify it under the same terms as Perl itself.
 

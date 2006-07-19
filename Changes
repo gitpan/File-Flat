@@ -1,5 +1,9 @@
 Revision history for Perl extension File::Flat.
 
+0.96 Wed 19 Jul 2006
+	- Moving from CVS to new SVN repository
+	- Upgrading to Module::Install
+
 0.95 Sat Nov  7 2004
 	- More cached stats
 	- Using prefork.pm to preload File:: modules in forking scenarios

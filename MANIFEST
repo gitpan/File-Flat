@@ -1,12 +1,6 @@
-Build.PL
 Changes
-ff_binary
-ff_content
-ff_text
 inc/Module/Install.pm
-inc/Module/Install/AutoInstall.pm
 inc/Module/Install/Base.pm
-inc/Module/Install/Build.pm
 inc/Module/Install/Can.pm
 inc/Module/Install/Fetch.pm
 inc/Module/Install/Makefile.pm
@@ -21,3 +15,7 @@ META.yml
 README
 t/00_api.t
 t/01_main.t
+t/99_pod.t
+t/ff_binary
+t/ff_content
+t/ff_text
