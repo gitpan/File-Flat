@@ -1,21 +1,21 @@
 abstract: Implements a flat filesystem
-author: 'Adam Kennedy <adamk@cpan.org>'
-build_requires:
+author: Adam Kennedy <adamk@cpan.org>
+build_requires: 
   File::Find: 0
   Test::ClassAPI: 1.02
   Test::More: 0.47
 distribution_type: module
-generated_by: Module::Install version 0.63
+generated_by: Module::Install version 0.64
 license: perl
 name: File-Flat
-no_index:
-  directory:
+no_index: 
+  directory: 
     - inc
     - t
-requires:
+requires: 
   Cwd: 0
   File::Copy: 0
-  File::NCopy: 0.32
+  File::Copy::Recursive: 0.28
   File::Remove: 0.21
   File::Slurp: 9999.04
   File::Spec: 0.85
@@ -23,4 +23,4 @@ requires:
   IO::File: 0
   perl: 5.005
   prefork: 0.02
-version: 0.96
+version: 1.00

@@ -15,7 +15,7 @@ META.yml
 README
 t/00_api.t
 t/01_main.t
-t/99_pod.t
+t/99_author.t
 t/ff_binary
 t/ff_content
 t/ff_text

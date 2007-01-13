@@ -24,8 +24,8 @@ DESCRIPTION
 
   Use of other modules
     File::Flat tries to use more task orientated modules wherever possible.
-    This includes the use of File::Copy, File::NCopy, File::Remove and
-    others. These are mostly loaded on-demand.
+    This includes the use of File::Copy, File::Copy::Recursive, File::Remove
+    and others. These are mostly loaded on-demand.
 
   Pruning and $AUTO_PRUNE
     "Pruning" is a technique where empty directories are assumed to be
@@ -58,13 +58,8 @@ DESCRIPTION
       }
 
   Non-Unix platforms
-    File::Flat itself should be completely capable of handling any platform
-    through its exclusive use of File::Spec.
-
-    However, some of the modules it relies upon, particularly File::Remove,
-    and possible File::NCopy are not File::Spec happy yet. Results may wary
-    on non Unix platforms. Users of non-Unix platforms are invited to patch
-    File::Remove ( and possibly File::NCopy ) and File::Flat should work.
+    As of version 0.97 File::Flat should work correctly on Win32. Other
+    platforms (such as VMS) are believed to work, but require confirmation.
 
 METHODS
   exists $filename
