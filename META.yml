@@ -20,12 +20,12 @@ no_index:
 requires: 
   Cwd: 0
   File::Copy: 0
-  File::Copy::Recursive: 0.28
-  File::Remove: 0.34
-  File::Slurp: 9999.04
+  File::Copy::Recursive: 0.35
+  File::Remove: 0.38
+  File::Slurp: 9999.10
   File::Spec: 0.85
-  File::Temp: 0.14
+  File::Temp: 0.17
   IO::File: 0
   perl: 5.005
   prefork: 0.02
-version: 1.01
+version: 1.02
