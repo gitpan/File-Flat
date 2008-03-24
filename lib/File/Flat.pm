@@ -11,7 +11,6 @@ use strict;
 use Cwd        ();
 use File::Spec ();
 use IO::File   ();
-use prefork    'File::Slurp';
 use prefork    'File::Temp';
 use prefork    'File::Copy';
 use prefork    'File::Copy::Recursive';
@@ -19,7 +18,7 @@ use prefork    'File::Remove';
 
 use vars qw{$VERSION $errstr %modes $AUTO_PRUNE};
 BEGIN {
-	$VERSION = '1.03';
+	$VERSION = '1.04';
 
 	# The main error string
 	$errstr  = '';
@@ -173,16 +172,25 @@ sub getReadWriteHandle { $_[0]->open( '+<', $_[1] ) }
 # Returns undef on error.
 sub slurp {
 	my $class = shift;
-	my $file = shift or return undef;
+	my $file  = shift or return undef;
 
 	# Check the file
 	$class->canOpen( $file )
 		or return $class->_error( "Unable to open file '$file'" );
 
-	# Hand off to File::Slurp
-	require File::Slurp;
-	File::Slurp::read_file( $file, scalar_ref => 1 )
-		or $class->_error( "Error opening file '$file'", $! );
+	# Use idiomatic slurp instead of File::Slurp
+	_slurp($file) or $class->_error( "Error opening file '$file'", $! );
+}
+
+# Provide a simple _slurp implementation
+sub _slurp {
+	my $file = shift;
+	local $/ = undef;
+	local *SLURP;
+	CORE::open( SLURP, "<$file" ) or return undef;
+	my $source = <SLURP>;
+	CORE::close( SLURP ) or return undef;
+	\$source;
 }
 
 # read reads in an entire file, returning it as an array or a reference to it.
@@ -190,7 +198,7 @@ sub slurp {
 # the calling context.
 sub read {
 	my $class = shift;
-	my $file = shift or return;
+	my $file  = shift or return;
 
 	# Check the file
 	unless ( $class->canOpen( $file ) ) {
@@ -198,10 +206,15 @@ sub read {
 		return;
 	}
 
-	# Hand off to File::Slurp
-	require File::Slurp;
-	my @content = File::Slurp::read_file( $file );
+	# Load the file
+	unless ( CORE::open(FILE, $file) ) {
+		$class->_error( "Unable to open file '$file'" );
+		return;
+	}
+	my @content = <FILE>;
 	chomp @content;
+	CORE::close(FILE);
+
 	wantarray ? @content : \@content;
 }
 
